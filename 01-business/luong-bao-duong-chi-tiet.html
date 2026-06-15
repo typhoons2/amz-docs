@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chi tiết luồng bảo dưỡng / xe nằm xưởng — AMZ</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --warnbg:#3a2e12;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6;padding:0 0 80px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#7c2d12,#0f172a);padding:38px 0 28px;border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 6px;font-size:27px;letter-spacing:-.5px}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:#1e293b;border:1px solid var(--line);padding:4px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .badge b{color:var(--accent2)}
+  h2{font-size:21px;margin:36px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:14px 0}
+  .diagram{background:#0b1220;border-radius:12px;padding:16px;overflow:auto;text-align:center;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:#0b1220;color:var(--accent2);font-weight:600}
+  tr:nth-child(even) td{background:#172033}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;color:#fbbf24;font-family:Consolas,monospace}
+  ul{padding-left:20px} li{margin:7px 0}
+  .callout{border-radius:12px;padding:14px 18px;margin:14px 0;border-left:4px solid}
+  .callout.warn{background:var(--warnbg);border-color:var(--warn)} .callout.warn b{color:#fbbf24}
+  .callout.info{background:#0c2a3a;border-color:var(--accent2)} .callout.info b{color:#7dd3fc}
+  .callout.ok{background:#0c2e1c;border-color:var(--accent)} .callout.ok b{color:#86efac}
+  .note{color:var(--muted);font-size:13px;font-style:italic}
+  .st{padding:6px 12px;border-radius:8px;font-weight:700;font-size:13px;border:1px solid;display:inline-block}
+  .st.active{background:#14532d;color:#bbf7d0;border-color:#22c55e}
+  .st.maint{background:#7c2d12;color:#fed7aa;border-color:#f97316}
+  .st.inact{background:#334155;color:#cbd5e1;border-color:#64748b}
+  footer{margin-top:46px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🔧 Chi tiết luồng bảo dưỡng / xe nằm xưởng</h1>
+    <div style="color:var(--muted)">AMZ cho thuê xe · phiếu bảo dưỡng tự bật/tắt trạng thái xe · ghi chi phí vào sổ quỹ</div>
+    <div class="badges">
+      <span class="badge">Cập nhật: <b>2026-06-15</b></span>
+      <span class="badge">Nguồn: <b>MaintenanceServiceImpl + CarRepository + Transaction</b></span>
+      <span class="badge">Đã đối chiếu code</span>
+      <span class="badge">Bổ sung: <b>ghi sổ chi phí (G1)</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <h2>Cơ chế cốt lõi: phiếu bảo dưỡng tự đổi trạng thái xe</h2>
+  <p>Xe có 3 trạng thái:
+    <span class="st active">ACTIVE (1) — cho thuê được</span>
+    <span class="st maint">MAINTENANCE (2) — đang ở xưởng</span>
+    <span class="st inact">INACTIVE (0) — ngừng</span>
+  </p>
+  <p>Tạo/sửa phiếu bảo dưỡng <b>tự động đổi trạng thái xe</b>:</p>
+  <table>
+    <thead><tr><th>Trạng thái phiếu</th><th>→ Trạng thái xe</th><th>Hệ quả</th></tr></thead>
+    <tbody>
+      <tr><td><b>PENDING</b> (đang sửa / nằm xưởng)</td><td>→ <span class="st maint">MAINTENANCE (2)</span></td><td>Xe <b>biến mất khỏi kết quả tìm xe rảnh</b></td></tr>
+      <tr><td><b>COMPLETED</b> (sửa xong)</td><td>→ <span class="st active">ACTIVE (1)</span></td><td>Xe <b>đặt lại được</b></td></tr>
+      <tr><td><i>(không truyền)</i></td><td>mặc định <b>COMPLETED</b></td><td>ghi nhận bảo dưỡng đã xong, không giam xe</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram"><pre class="mermaid">
+flowchart TD
+    A["Xe cần bảo dưỡng /<br/>nằm xưởng"] --> B["Admin tạo phiếu BD<br/>status = PENDING"]
+    B --> C["Xe tự chuyển<br/>MAINTENANCE (2)"]
+    C --> D["Biến mất khỏi<br/>tìm xe rảnh"]
+    C --> E["Sửa xong → đổi phiếu<br/>status = COMPLETED"]
+    E --> F["Xe tự về<br/>ACTIVE (1)"]
+    F --> G["Đặt lại được"]
+    classDef maint fill:#7c2d12,stroke:#f97316,color:#fed7aa;
+    classDef ok fill:#14532d,stroke:#22c55e,color:#dcfce7;
+    classDef step fill:#1e293b,stroke:#64748b,color:#e2e8f0;
+    class C,D maint; class F,G ok; class A,B,E step;
+  </pre></div>
+
+  <div class="callout warn">
+    <b>Cơ chế chặn đặt xe dựa vào TRẠNG THÁI XE, không dựa vào ngày phiếu.</b> Truy vấn tìm xe rảnh yêu cầu <code>status = 1</code> + không trùng booking. Nên khi phiếu PENDING, xe bị <b>chặn hoàn toàn</b> (mọi khung giờ tương lai), tới khi đổi phiếu sang COMPLETED. (Query <b>không</b> lọc <code>maintenance_tickets</code> theo ngày.)
+  </div>
+
+  <h2>Phiếu bảo dưỡng ghi gì</h2>
+  <ul>
+    <li>Mã <code>BD...</code>, xe, <b>ODO lúc sửa</b> (cập nhật luôn ODO xe), <b>đối tác sửa</b>, <b>danh mục</b>, ngày bắt đầu/xong, <b>chi phí</b>, ảnh hóa đơn/xe, ghi chú.</li>
+    <li>Endpoint admin: <code>maintenance/create</code>, <code>search</code>, <code>update</code>, <code>detail</code>, <code>delete</code>, <code>configs/partners</code>, <code>configs/maintenance-categories</code>.</li>
+  </ul>
+
+  <h2>💰 Phí bảo dưỡng vào sổ quỹ <span class="note">(G1 — bổ sung 2026-06-15)</span></h2>
+  <div class="callout warn">
+    <b>Trước G1:</b> chi phí trên phiếu bảo dưỡng chỉ nằm ở field <code>maintenance_tickets.total_amount</code>, <b>KHÔNG</b> sinh phiếu chi trong bảng <code>transactions</code>. Báo cáo chi phí chỉ đọc bảng <code>transactions</code> → tiền sửa xe "mồ côi", <b>báo cáo chi phí luôn = 0</b> → "lợi nhuận" = doanh thu chưa trừ một xu chi phí nào.
+  </div>
+  <p>Từ G1: khi phiếu bảo dưỡng <b>chuyển sang COMPLETED</b> và có số tiền &gt; 0, hệ thống <b>tự sinh 1 phiếu chi</b> (<code>transactions</code>, <code>type = 2</code>, danh mục <code>MAINTENANCE_COST</code> — "Chi sửa chữa/Bảo dưỡng") trong <b>cùng một giao dịch (@Transactional)</b> với việc lưu phiếu.</p>
+
+  <div class="callout info">
+    <b>Mốc ghi nhận = COMPLETED</b> (quyết định nghiệp vụ, lead chốt 2026-06-15). Phiếu <code>PENDING</code> chưa ghi sổ vì còn có thể bị hủy — tính sớm sẽ phải đảo phiếu liên tục.
+  </div>
+
+  <table>
+    <thead><tr><th>Hành động trên phiếu bảo dưỡng</th><th>→ Tác động sổ quỹ (transactions)</th></tr></thead>
+    <tbody>
+      <tr><td>Tạo phiếu thẳng ở <b>COMPLETED</b>, tiền &gt; 0</td><td>Tạo <b>1 phiếu chi</b> <code>MAINTENANCE_COST</code></td></tr>
+      <tr><td>Tạo / đang ở <b>PENDING</b></td><td><b>Không</b> sinh phiếu (chỉ ghi khi hoàn thành)</td></tr>
+      <tr><td><b>PENDING → COMPLETED</b></td><td>Tạo <b>1 phiếu chi</b> <code>MAINTENANCE_COST</code></td></tr>
+      <tr><td>Sửa <b>số tiền</b> phiếu đã COMPLETED</td><td><b>Void</b> phiếu chi cũ + <b>tạo</b> phiếu chi mới (không cộng dồn)</td></tr>
+      <tr><td><b>COMPLETED → PENDING</b> (mở lại)</td><td><b>Void</b> phiếu chi</td></tr>
+      <tr><td><b>COMPLETED → CANCELLED</b> (hủy)</td><td><b>Void</b> phiếu chi</td></tr>
+      <tr><td>Xóa phiếu (chỉ cho phép khi PENDING)</td><td>Không có phiếu chi để xử lý</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram"><pre class="mermaid">
+flowchart TD
+    P["Phiếu BD<br/>PENDING"] -->|"sửa xong"| C["Phiếu BD<br/>COMPLETED"]
+    C -->|"tiền &gt; 0"| T["Sinh PHIẾU CHI<br/>MAINTENANCE_COST (type=2)"]
+    T --> R["Vào báo cáo chi phí<br/>(hết bug chi phí = 0)"]
+    C -->|"sửa số tiền"| V1["Void phiếu cũ<br/>+ tạo phiếu mới"]
+    C -->|"hủy / mở lại"| V2["Void phiếu chi"]
+    classDef step fill:#1e293b,stroke:#64748b,color:#e2e8f0;
+    classDef money fill:#14532d,stroke:#22c55e,color:#dcfce7;
+    classDef warn fill:#3a2e12,stroke:#f59e0b,color:#fef3c7;
+    class P,C step; class T,R money; class V1,V2 warn;
+  </pre></div>
+
+  <p>Phiếu chi sinh ra gắn: <b>xe</b> (<code>car_id</code>), <b>bến</b> (theo bến của xe), <b>đối tác sửa</b> (<code>target = PARTNER</code> nếu có, không thì "Bảo dưỡng nội bộ"), <b>ngày giao dịch</b> = ngày kết thúc phiếu (fallback: ngày bắt đầu → hiện tại), ghi chú <code>"Chi phí bảo dưỡng/sửa chữa xe &lt;biển số&gt;, phiếu BD #..."</code>.</p>
+  <ul>
+    <li><b>Liên kết:</b> cột mới <code>maintenance_tickets.expense_transaction_id</code> giữ id phiếu chi đã sinh → sửa/hủy/mở lại thì void <b>đúng phiếu đó</b>, không tạo trùng (idempotent). Mỗi phiếu BD tại mọi thời điểm có <b>tối đa 1 phiếu chi đang hiệu lực</b>.</li>
+    <li><b>Trục ngày:</b> phiếu chi bảo dưỡng <b>không gắn booking</b> → cả 2 báo cáo (doanh thu &amp; chi phí) đều xếp theo <code>transaction_date</code> → <b>không bị lệch trục ngày</b> (gap G5 chỉ ảnh hưởng phiếu gắn hợp đồng).</li>
+  </ul>
+
+  <div class="callout warn">
+    <b>⚠️ Cần làm trước khi deploy:</b> G1 thêm cột <code>expense_transaction_id</code> vào <code>maintenance_tickets</code>. PHẢI chạy migration <code>migration-add-maintenance-expense-txn-link-2026-06-15.sql</code> trên DB (local + prod) <b>trước/cùng lúc deploy</b>, không thì Hibernate validate crash-loop. Bảng đang rỗng → zero-risk. Danh mục <code>MAINTENANCE_COST</code> đã có sẵn trên prod (id=6, type=2) — không cần seed.
+    <br><span class="note">Trạng thái: branch <code>feat/g1-maintenance-expense</code>, qua code review + suite 697/0/0, chờ lead test localhost &amp; merge.</span>
+  </div>
+
+  <h2>Bảo dưỡng định kỳ (nhắc theo km)</h2>
+  <p>Nếu danh mục có chu kỳ km (<code>reminderIntervalKm &gt; 0</code>) → cập nhật <code>lastMaintenanceKm</code> + tính <code>nextMaintenanceKm</code> để <b>nhắc lần sau</b> (chuông "bảo dưỡng đến hạn" ở F18). Sửa lặt vặt (minor repair) thì bỏ qua chu kỳ.</p>
+
+  <h2>Hiển thị &amp; báo cáo</h2>
+  <ul>
+    <li><b>Lịch xe</b> (<code>cars/schedule</code>): khoảng ngày bảo dưỡng hiện thành ô bận <b>type MAINTENANCE</b> → admin/khách thấy xe bận giai đoạn đó.</li>
+    <li><b>Fill-rate:</b> đọc <code>maintenance_tickets</code> theo ngày → đếm là <b>ngày bảo dưỡng</b> (ghi đè ngày thuê); công thức NET trừ ngày này khỏi mẫu số. Xem <code>02-technical/cach-tinh-ty-le-lap-day.html</code>.</li>
+  </ul>
+
+  <h2>Trường hợp xe TAI NẠN nằm xưởng</h2>
+  <p>Tách 2 việc — <b>không tự nối nhau</b> trong code:</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+    X["Tai nạn khi khách<br/>ĐANG thuê"] --> I["Báo sự cố INCIDENT<br/>type = ACCIDENT (F24)"]
+    I --> J["Đổi xe cho khách<br/>thuê tiếp"]
+    I -. "bước RIÊNG" .-> K["Admin tạo phiếu BD<br/>PENDING cho xe hỏng"]
+    K --> L["Xe hỏng → MAINTENANCE<br/>ngừng cho thuê"]
+    L --> M["Sửa xong → COMPLETED<br/>xe về ACTIVE"]
+    classDef warn fill:#3a2e12,stroke:#f59e0b,color:#fef3c7;
+    classDef maint fill:#7c2d12,stroke:#f97316,color:#fed7aa;
+    classDef ok fill:#14532d,stroke:#22c55e,color:#dcfce7;
+    class X,I warn; class K,L maint; class J,M ok;
+  </pre></div>
+  <ol>
+    <li><b>Tai nạn khi khách đang thuê</b> → luồng <b>sự cố (F24)</b>: báo <code>INCIDENT</code> loại <code>ACCIDENT</code> → <b>đổi xe</b> cho khách thuê tiếp.</li>
+    <li><b>Đưa xe hỏng vào xưởng</b> → admin <b>tạo phiếu bảo dưỡng PENDING</b> → xe tự chuyển MAINTENANCE, ngừng cho thuê → sửa xong đổi phiếu COMPLETED → xe về ACTIVE.</li>
+  </ol>
+
+  <h2>Lưu ý / điểm cần để ý (đọc từ code)</h2>
+  <div class="callout warn"><b>⚠️ Hủy phiếu (CANCELLED) KHÔNG đưa xe về ACTIVE.</b> Logic đổi <b>trạng thái xe</b> chỉ xử lý <code>PENDING → MAINTENANCE</code> và <code>COMPLETED → ACTIVE</code>. Trạng thái <code>CANCELLED</code> rơi ra ngoài → nếu hủy 1 phiếu PENDING, xe có thể <b>kẹt ở MAINTENANCE</b> (phải sửa tay). Gap này <b>vẫn còn</b>, chưa sửa. <span class="note">(Lưu ý phân biệt: về SỔ QUỸ thì G1 đã xử lý đúng — hủy phiếu COMPLETED sẽ void phiếu chi; gap còn lại chỉ là phần trạng thái XE.)</span></div>
+  <div class="callout info"><b>Chặn theo trạng thái, không theo ngày:</b> phiếu PENDING khóa xe ngay lập tức cho tới khi COMPLETED — không phân biệt khoảng ngày bảo dưỡng. Muốn "đặt lịch bảo dưỡng tương lai mà vẫn cho thuê tới ngày đó" thì cơ chế hiện tại chưa hỗ trợ (tạo phiếu PENDING là khóa ngay).</div>
+
+  <footer>
+    Sinh từ đọc code <code>MaintenanceServiceImpl</code> + <code>CarRepository</code> (2026-06-09); bổ sung phần ghi sổ chi phí từ <code>MaintenanceServiceImpl</code> + <code>Transaction</code> (G1, 2026-06-15).
+    Liên quan: F11 (quản lý xe + bảo dưỡng), F23 (duyệt phiếu bảo trì), F24 (đổi xe do sự cố) trong <code>luong-nghiep-vu-tong-hop.html</code>;
+    bản đồ dòng tiền <code>02-technical/ban-do-dong-tien.html</code>; backlog dòng tiền <code>03-reports/backlog-dong-tien-BE.md</code> (G1).
+    <br>Cần internet để vẽ sơ đồ (Mermaid tải từ CDN).
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad:true, theme:'dark', securityLevel:'loose', flowchart:{ curve:'basis', htmlLabels:true } });
+</script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bản đồ dòng tiền tổng thể — AMZ</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --warnbg:#3a2e12; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6;padding:0 0 80px}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#0c4a6e,#0f172a);padding:38px 0 28px;border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 6px;font-size:27px;letter-spacing:-.5px}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:#1e293b;border:1px solid var(--line);padding:4px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .badge b{color:var(--accent2)}
+  h2{font-size:21px;margin:38px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h3{font-size:16px;margin:20px 0 8px;color:#cbd5e1}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:14px 0}
+  .diagram{background:#0b1220;border-radius:12px;padding:16px;overflow:auto;text-align:center;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#0b1220;color:var(--accent2);font-weight:600}
+  tr:nth-child(even) td{background:#172033}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px;color:#fbbf24;font-family:Consolas,monospace}
+  ul,ol{padding-left:20px} li{margin:6px 0}
+  .callout{border-radius:12px;padding:14px 18px;margin:14px 0;border-left:4px solid}
+  .callout.warn{background:var(--warnbg);border-color:var(--warn)} .callout.warn b{color:#fbbf24}
+  .callout.info{background:#0c2a3a;border-color:var(--accent2)} .callout.info b{color:#7dd3fc}
+  .callout.bad{background:#3a1212;border-color:var(--danger)} .callout.bad b{color:#fca5a5}
+  .note{color:var(--muted);font-size:13px;font-style:italic}
+  .sev{padding:3px 9px;border-radius:7px;font-weight:700;font-size:11.5px;border:1px solid;white-space:nowrap}
+  .sev.hi{background:#3a1212;color:#fca5a5;border-color:#ef4444}
+  .sev.mid{background:#3a2e12;color:#fcd34d;border-color:#f59e0b}
+  .sev.lo{background:#1e293b;color:#cbd5e1;border-color:#64748b}
+  .yes{color:#86efac;font-weight:700} .no{color:#94a3b8} .part{color:#fcd34d}
+  .stat{display:inline-block;background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:8px 14px;margin:4px 6px 4px 0;font-size:13px}
+  .stat b{color:var(--accent);font-size:18px}
+  footer{margin-top:46px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>💰 Bản đồ dòng tiền tổng thể</h1>
+    <div style="color:var(--muted)">AMZ cho thuê xe · mọi điểm tiền VÀO / RA / GIỮ HỘ · các sổ ghi tiền · lỗ hổng</div>
+    <div class="badges">
+      <span class="badge">Cập nhật: <b>2026-06-15</b></span>
+      <span class="badge">Quét cạn code: <b>15 agent</b></span>
+      <span class="badge">Đã đối chiếu file:line</span>
+      <span class="badge">Tiến độ xử lý: <b>03-reports/backlog-dong-tien-BE.md</b></span>
+    </div>
+    <div style="margin-top:14px">
+      <span class="stat"><b>181</b> điểm tiền</span>
+      <span class="stat"><b>5</b> cuốn sổ</span>
+      <span class="stat"><b>11</b> lỗ hổng · <b>3</b> đã xử lý</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <h2>Vì sao dòng tiền thấy rối</h2>
+  <div class="callout info">
+    Tiền được ghi ở <b>4 sổ khác nhau, KHÔNG có sổ cái thống nhất</b>, và không có bước đối soát tự động.
+    Chí mạng: báo cáo lấy <b>DOANH THU từ sổ hợp đồng</b> (giá thuê rải theo ngày) nhưng lấy <b>CHI PHÍ từ sổ phiếu chi</b> — hai vế <b>không bao giờ so với tiền mặt thực thu</b>.
+    Nhiều khoản tiền thật (sửa xe, phí hủy, hoa hồng, tịch thu cọc, treo đổi xe, gia hạn) chỉ nằm ở field hợp đồng, <b>không sinh phiếu thu–chi</b> → vô hình với báo cáo.
+  </div>
+
+  <h2>1) Sơ đồ tiền vào / ra quỹ</h2>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+    KH["KHÁCH HÀNG"]
+    Q[("QUỸ AMZ")]
+    NCC["Gara / Nhà cung cấp"]
+    GT["Người giới thiệu"]
+    KH -->|"tiền thuê"| Q
+    KH -->|"phụ thu / phạt"| Q
+    KH -->|"chênh đổi xe"| Q
+    KH -. "cọc (giữ hộ)" .-> Q
+    Q -. "hoàn cọc" .-> KH
+    Q -->|"hoàn tiền thuê khi hủy"| KH
+    Q -->|"chi xăng / sửa xe / bảo hiểm"| NCC
+    Q -->|"hoa hồng"| GT
+    classDef kh fill:#0c4a6e,stroke:#38bdf8,color:#e0f2fe;
+    classDef q fill:#14532d,stroke:#22c55e,color:#dcfce7;
+    classDef out fill:#3a1212,stroke:#ef4444,color:#fecaca;
+    class KH kh; class Q q; class NCC,GT out;
+  </pre></div>
+  <p class="note">Nét đứt = tiền giữ hộ (cọc), không phải thu nhập/chi phí.</p>
+
+  <h2>2) Bốn cuốn sổ — và chỗ KHÔNG nối nhau (gốc của sự rối)</h2>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+    E["1 khoản tiền phát sinh"]
+    A["📒 Sổ HỢP ĐỒNG<br/>(field tiền trên đơn)"]
+    B["📗 Sổ PHIẾU THU–CHI<br/>(transactions)"]
+    C["📕 Sổ BẢO DƯỠNG<br/>(maintenance_tickets)"]
+    R1["📊 Báo cáo DOANH THU<br/>(đọc rentalPrice)"]
+    R2["📊 Báo cáo CHI PHÍ<br/>(đọc phiếu chi type=2)"]
+    E --> A
+    E --> B
+    E -. "❌ KHÔNG tự nối" .-> C
+    A --> R1
+    B --> R2
+    A -. "❌ không đối soát" .-> B
+    C -. "❌ phải bấm tay<br/>mới thành phiếu chi" .-> B
+    classDef e fill:#1e293b,stroke:#64748b,color:#e2e8f0;
+    classDef book fill:#0c2a3a,stroke:#38bdf8,color:#e0f2fe;
+    classDef rep fill:#14532d,stroke:#22c55e,color:#dcfce7;
+    class E e; class A,B,C book; class R1,R2 rep;
+  </pre></div>
+
+  <h3>5 cuốn sổ chi tiết</h3>
+  <table>
+    <thead><tr><th>Sổ</th><th>Ghi gì</th><th>Vai trò</th></tr></thead>
+    <tbody>
+      <tr><td><b>1. Hợp đồng</b><br><code>new_bookings</code></td><td>collectedDeposit, paidAmount, rentalPrice, totalAmount, surchargeAmount, refundAmount, changeCarPendingAmount, cancellationFee, commissionAmount...</td><td><b>Nguồn DOANH THU</b> (qua rentalPrice). Nhiều field không có phiếu thu–chi → lệch sổ 2.</td></tr>
+      <tr><td><b>2. Phiếu thu–chi</b><br><code>transactions</code></td><td>Thu type=1 (DEPOSIT_COLLECT, RENTAL_PAYMENT, REVENUE...) · Chi type=2 (REPAIR_OUT, GAS_OUT, RENTAL_REFUND...)</td><td><b>Nguồn CHI PHÍ</b>. KHÔNG phải nguồn doanh thu. is_cash phân biệt mặt/CK.</td></tr>
+      <tr><td><b>3. Bảo dưỡng</b><br><code>maintenance_tickets</code></td><td>total_amount (tiền sửa), partner_id (gara)</td><td><b>G1: tự nối sổ 2</b> — phiếu COMPLETED sinh phiếu chi <code>MAINTENANCE_COST</code>, tự vào báo cáo. (Trước G1 là sổ độc lập.)</td></tr>
+      <tr><td><b>4. Báo cáo</b><br><code>ReportServiceImpl</code></td><td>DT = rentalPrice rải ngày · CP = type=2 · LN = DT − CP</td><td>DT và CP lấy từ <b>2 sổ + 2 trục ngày khác nhau</b>.</td></tr>
+      <tr><td><b>5. Ví/công nợ khách</b><br><code>customers</code></td><td>wallet_balance, debt_amount</td><td>⚠️ <b>CỘT CHẾT</b> — không tự cập nhật. Công nợ thật tính động lúc query.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3) Tiền VÀO quỹ</h2>
+  <table>
+    <thead><tr><th>Khoản</th><th>Kích hoạt</th><th>Ghi vào</th><th>Báo cáo?</th></tr></thead>
+    <tbody>
+      <tr><td>Thu trả trước</td><td>prePayment()</td><td>paidAmount + RENTAL_PAYMENT</td><td class="part">gián tiếp</td></tr>
+      <tr><td>Thu khi giao xe</td><td>performDelivery()</td><td>paidAmount + RENTAL_PAYMENT</td><td class="part">gián tiếp</td></tr>
+      <tr><td>Thu khi nhận xe</td><td>performReceive()</td><td>paidAmount + REVENUE</td><td class="part">gián tiếp</td></tr>
+      <tr><td>Thu khi chốt hợp đồng</td><td>finishBooking()</td><td>paidAmount + REVENUE</td><td class="part">gián tiếp</td></tr>
+      <tr><td>Chênh đổi xe — tại VP</td><td>changeCar() PAY_NOW+AT_OFFICE</td><td>paidAmount + totalAmount + RENTAL_PAYMENT</td><td class="yes">có</td></tr>
+      <tr><td>Chênh đổi xe — hiện trường</td><td>performChangeCarDelivery()</td><td>paidAmount + RENTAL_PAYMENT</td><td class="yes">có</td></tr>
+      <tr><td>Phiếu thu thủ công</td><td>POST transactions/create type=1</td><td>transactions + sync paidAmount</td><td class="part">một phần</td></tr>
+      <tr><td><b>Doanh thu thuê (rental pro-rata)</b></td><td>getRevenueReport</td><td>không ghi transaction — tính động</td><td class="yes">có (nguồn DT duy nhất)</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn"><b>⚠️ Tiền thực thu (paidAmount) và doanh thu báo cáo là 2 con số độc lập, không bao giờ so khớp.</b> Mọi khoản thu tiền thuê chỉ vào báo cáo gián tiếp qua rentalPrice, không qua chính phiếu thu.</div>
+
+  <h2>4) Tiền RA quỹ</h2>
+  <table>
+    <thead><tr><th>Khoản</th><th>Ghi vào</th><th>Báo cáo?</th></tr></thead>
+    <tbody>
+      <tr><td>Hoàn cọc (confirmRefund)</td><td>DEPOSIT_REFUND (type=2)</td><td class="no">không (đúng — cọc giữ hộ)</td></tr>
+      <tr><td>Hoàn tiền thuê khi hủy</td><td>RENTAL_REFUND (type=2)</td><td class="part">⚠️ bị tính thành chi phí (sai)</td></tr>
+      <tr><td>Đảo phụ thu</td><td>SURCHARGE_REVERSE (type=2)</td><td class="part">⚠️ có thể bị tính thành chi phí</td></tr>
+      <tr><td>Chi xăng / sửa chữa / bảo hiểm / khác</td><td>GAS_OUT / REPAIR_OUT / INSURANCE_OUT / OTHER_OUT</td><td class="yes">có</td></tr>
+      <tr><td>Chi phí gắn lúc tạo đơn</td><td>createBookingWithExtras expenses[]</td><td class="yes">có (tự nối)</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Tiền sửa xe: <s>chỉ vào báo cáo nếu bấm tay phiếu chi</s> → <b>G1 đã sửa</b>: phiếu bảo dưỡng COMPLETED tự sinh phiếu chi <code>MAINTENANCE_COST</code> (type=2), tự vào báo cáo. Xem <code>../01-business/luong-bao-duong-chi-tiet.html</code>.</p>
+
+  <h2>5) Tiền GIỮ HỘ / nội bộ (không phải thu nhập/chi phí)</h2>
+  <table>
+    <thead><tr><th>Khoản</th><th>Ghi vào</th><th>Ghi chú</th></tr></thead>
+    <tbody>
+      <tr><td>Thu cọc</td><td>collectedDeposit + DEPOSIT_COLLECT</td><td>Giữ hộ, loại khỏi báo cáo (đúng)</td></tr>
+      <tr><td>Thu phụ thu</td><td>surchargeAmount + SURCHARGE_COLLECT</td><td>Bút toán nội bộ, thường lấy từ cọc</td></tr>
+      <tr><td>Cọc giữ chờ thanh lý</td><td>status=6 + refundRequestedAt</td><td>Đếm ngược 7 ngày</td></tr>
+      <tr><td>Khoản treo chênh đổi xe</td><td>changeCarPendingAmount</td><td>⚠️ không giao xe mới → treo vĩnh viễn</td></tr>
+      <tr><td>Phí hủy đơn</td><td>cancellationFee (chỉ field)</td><td>⚠️ không tạo transaction → không vào thu nhập</td></tr>
+      <tr><td>Trừ chênh đổi xe vào cọc</td><td>collectedDeposit (giảm)</td><td>không tạo transaction</td></tr>
+      <tr><td>Dùng mã khuyến mãi</td><td>PromotionUsage + usedCount</td><td>giảm DT pro-rata gián tiếp</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6) ⚠️ Lỗ hổng (xếp theo mức ảnh hưởng) — trạng thái xử lý</h2>
+  <p class="note">Mã G# theo báo cáo <code>03-reports/bao-cao-lo-hong-dong-tien-BE.md</code>; chi tiết tiến độ + quyết định lead xem <code>03-reports/backlog-dong-tien-BE.md</code>. G11 phát hiện sau khi đào sâu luồng hoàn cọc.</p>
+  <table>
+    <thead><tr><th>#</th><th>Lỗ hổng</th><th>Ảnh hưởng</th><th>Mức</th><th>Trạng thái</th></tr></thead>
+    <tbody>
+      <tr><td>G1</td><td><b>Phí sửa xe không tự nối sang phiếu chi</b></td><td>Chi phí thật biến mất, lợi nhuận thổi phồng (báo cáo chi phí = 0)</td><td><span class="sev hi">CAO</span></td><td>✅ <b>Đã sửa</b> — phiếu COMPLETED tự tạo phiếu chi <code>MAINTENANCE_COST</code> (chờ merge/deploy + migration)</td></tr>
+      <tr><td>G2</td><td><b>Doanh thu lấy từ rentalPrice, không đối chiếu phiếu thu</b></td><td>Sửa giá sau khi thu → DT báo cáo lệch tiền thực thu, không cảnh báo</td><td><span class="sev hi">CAO</span></td><td>⏳ chờ — đề xuất thêm cột "đã thu thực tế" + "chênh lệch"</td></tr>
+      <tr><td>G3</td><td><b>RENTAL_REFUND & SURCHARGE_REVERSE bị tính là chi phí</b></td><td>Hoàn tiền thuê / đảo phụ thu cộng nhầm vào chi phí</td><td><span class="sev hi">CAO</span></td><td>⏳ chờ quyết (latent — chưa phát sinh trên prod)</td></tr>
+      <tr><td>G4</td><td><b>Gia hạn tăng tiền nhưng không bắt tạo phiếu thu</b></td><td>DT tăng nhưng paidAmount không đổi → ghi nhận tiền chưa thu</td><td><span class="sev hi">CAO</span></td><td>🔧 sắp làm — lead chốt <b>thu ngay, không cho nợ</b></td></tr>
+      <tr><td>G5</td><td>Hai báo cáo chi phí dùng hai trục ngày khác nhau</td><td>Tổng chi phí màn DT và màn chi phí lệch nhau</td><td><span class="sev mid">VỪA</span></td><td>⏳ chờ — đã rõ là chủ đích, latent (chi phí=0)</td></tr>
+      <tr><td>G6</td><td>Phí hủy & hoa hồng không có phiếu thu–chi</td><td>cancellationFee, commissionAmount vô hình với báo cáo</td><td><span class="sev mid">VỪA</span></td><td>⏸ hoãn — hoa hồng chưa dùng (lead 15/06)</td></tr>
+      <tr><td>G7</td><td>Khoản treo đổi xe có thể kẹt vĩnh viễn</td><td>Không giao xe mới xong → tiền chênh treo mãi, không vào sổ</td><td><span class="sev mid">VỪA</span></td><td>⏳ chờ quyết (latent — 0 đơn)</td></tr>
+      <tr><td>G8</td><td>Tịch thu cọc (SEIZED) không tự ghi thu nhập</td><td>Admin phải ghi tay → dễ sót khoản tịch thu</td><td><span class="sev mid">VỪA</span></td><td>⏸ để sau — chưa có hướng nghiệp vụ (lead 15/06)</td></tr>
+      <tr><td>G9</td><td>Ví / công nợ khách là cột chết</td><td>Nếu UI hiển thị là công nợ thật thì luôn sai</td><td><span class="sev mid">VỪA</span></td><td>🔧 sắp làm — ẩn cột (AMZ không cho khách nợ)</td></tr>
+      <tr><td>G10</td><td>Phiếu đã hủy (soft-delete) cần lọc nhất quán</td><td>Query quên lọc deleted → tính cả phiếu đã hủy (lệch 11tr export Excel)</td><td><span class="sev lo">THẤP</span></td><td>✅ <b>Đã merge</b> (#513) — export loại phiếu hủy</td></tr>
+      <tr><td><b>G11</b></td><td><b>Hoàn cọc ra quỹ qua 3 cửa không bút toán</b> <span class="note">(phát hiện sau)</span></td><td>0 phiếu hoàn cọc dù tiền đã ra; 29 đơn đóng treo 58tr cọc</td><td><span class="sev hi">CAO</span></td><td>✅ <b>Đã merge</b> (#514) — chặn 6→4 + tự tạo phiếu chi khi nhận xe</td></tr>
+    </tbody>
+  </table>
+
+  <h2>7) Đối soát giữa các sổ — vì sao không khớp</h2>
+  <div class="card">
+    <ol>
+      <li><b>Doanh thu (sổ HĐ) ≠ Tiền thực thu (sổ phiếu thu):</b> độc lập hoàn toàn; sửa rentalPrice sau khi thu → lệch âm thầm.</li>
+      <li><b>Chi phí màn doanh thu ≠ chi phí màn chi phí:</b> cùng nguồn type=2 nhưng khác trục ngày.</li>
+      <li><b>Sổ bảo dưỡng ≠ phiếu chi:</b> <s>không nối → chi phí sửa xe biến mất khỏi báo cáo</s> → <b>G1 đã nối</b>: phiếu COMPLETED tự sinh phiếu chi MAINTENANCE_COST.</li>
+      <li><b>Bút toán nội bộ</b> (đảo phụ thu, hoàn...) chỉ triệt tiêu nếu cặp thu–chi cùng kỳ + cùng trục ngày; bộ lọc chỉ loại cọc nên một số cặp đảo vẫn lọt.</li>
+      <li><b>Ví/công nợ khách</b> không được duy trì → không đối soát được công nợ.</li>
+    </ol>
+  </div>
+
+  <footer>
+    Sinh từ quét cạn code <code>xanh-service</code> (workflow 15 agent: 162 + 19 điểm tiền, đối chiếu file:line) — 2026-06-09; cập nhật trạng thái xử lý G1/G10/G11 — 2026-06-15.
+    Liên quan: <code>cach-tinh-doanh-thu.html</code>, <code>../01-business/luong-bao-duong-chi-tiet.html</code>, <code>cach-tinh-ty-le-lap-day.html</code>, <code>../03-reports/backlog-dong-tien-BE.md</code>.
+    <br>Cần internet để vẽ sơ đồ (Mermaid tải từ CDN).
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad:true, theme:'dark', securityLevel:'loose', flowchart:{ curve:'basis', htmlLabels:true } });
+</script>
+</body>
+</html>
