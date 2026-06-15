@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luồng sự cố / tai nạn → đổi xe — AMZ</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --warnbg:#3a2e12; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6;padding:0 0 80px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#7f1d1d,#0f172a);padding:38px 0 28px;border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 6px;font-size:27px;letter-spacing:-.5px}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:#1e293b;border:1px solid var(--line);padding:4px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .badge b{color:var(--accent2)}
+  h2{font-size:21px;margin:36px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h3{font-size:17px;margin:22px 0 8px;color:#cbd5e1}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:14px 0}
+  .diagram{background:#0b1220;border-radius:12px;padding:16px;overflow:auto;text-align:center;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:#0b1220;color:var(--accent2);font-weight:600}
+  tr:nth-child(even) td{background:#172033}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;color:#fbbf24;font-family:Consolas,monospace}
+  ul,ol{padding-left:20px} li{margin:7px 0}
+  .callout{border-radius:12px;padding:14px 18px;margin:14px 0;border-left:4px solid}
+  .callout.warn{background:var(--warnbg);border-color:var(--warn)} .callout.warn b{color:#fbbf24}
+  .callout.info{background:#0c2a3a;border-color:var(--accent2)} .callout.info b{color:#7dd3fc}
+  .callout.ok{background:#0c2e1c;border-color:var(--accent)} .callout.ok b{color:#86efac}
+  .note{color:var(--muted);font-size:13px;font-style:italic}
+  .st{padding:5px 11px;border-radius:8px;font-weight:700;font-size:12.5px;border:1px solid;display:inline-block}
+  .st.ongoing{background:#14532d;color:#bbf7d0;border-color:#22c55e}
+  .st.incident{background:#7f1d1d;color:#fecaca;border-color:#ef4444}
+  .st.changing{background:#78350f;color:#fed7aa;border-color:#f59e0b}
+  .st.other{background:#334155;color:#cbd5e1;border-color:#64748b}
+  .pill{display:inline-block;background:#0b1220;border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--muted);margin:2px 4px 2px 0}
+  footer{margin-top:46px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🚨 Luồng sự cố / tai nạn → đổi xe cho khách</h1>
+    <div style="color:var(--muted)">AMZ cho thuê xe · từ lúc khách <b>đang thuê</b> tới lúc <b>đổi sang xe mới</b> hoặc kết thúc hợp đồng</div>
+    <div class="badges">
+      <span class="badge">Cập nhật: <b>2026-06-09</b></span>
+      <span class="badge">Nguồn: <b>BookingServiceImpl (reportIncident / changeCar / performChangeCarDelivery)</b></span>
+      <span class="badge">Đã đối chiếu code</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="callout info">
+    <b>Tóm tắt 1 câu:</b> Khách đang thuê (<span class="st ongoing">ĐANG THUÊ</span>) mà xe <b>hỏng kỹ thuật</b> hoặc <b>tai nạn</b> → admin bấm <b>Báo sự cố</b> (đơn sang <span class="st incident">SỰ CỐ</span>) → admin xử lý theo <b>1 trong 4 hướng</b>; phổ biến nhất là <b>Đổi xe</b> (2 bước: văn phòng chốt xe + tiền, rồi hiện trường giao xe) để khách thuê tiếp <b>trên cùng 1 hợp đồng</b>.
+  </div>
+
+  <h2>1) Hai loại sự cố</h2>
+  <table>
+    <thead><tr><th>Loại</th><th>Mã code</th><th>Nghĩa</th></tr></thead>
+    <tbody>
+      <tr><td><b>Lỗi kỹ thuật</b></td><td><code>TECHNICAL_FAULT</code></td><td>Xe chết máy, hỏng hóc giữa chừng — không phải va chạm</td></tr>
+      <tr><td><b>Tai nạn</b></td><td><code>ACCIDENT</code></td><td>Va chạm / tai nạn giao thông khi khách đang cầm xe</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Khi báo sự cố BẮT BUỘC chọn 1 trong 2 loại (code validate, thiếu → báo lỗi). Khi rời trạng thái sự cố, hệ thống tự xóa loại sự cố này.</p>
+
+  <h2>2) Bản đồ trạng thái — đang thuê → sự cố → các hướng xử lý</h2>
+  <div class="diagram"><pre class="mermaid">
+flowchart TD
+    O["ĐANG THUÊ (3)<br/>khách đang cầm xe"] -->|"Báo sự cố<br/>chọn loại: lỗi KT / tai nạn"| I["SỰ CỐ (7)<br/>incidentType được set"]
+    I -->|"① Đổi xe<br/>(phổ biến)"| C["CHỜ GIAO XE MỚI (9)<br/>văn phòng đã chốt xe + tiền"]
+    C -->|"Giao xe mới tại hiện trường<br/>ghi km + ảnh"| O2["ĐANG THUÊ (3)<br/>trên xe mới, cùng 1 đơn"]
+    I -->|"② Báo nhầm"| O3["ĐANG THUÊ (3)<br/>quay lại, xóa loại sự cố"]
+    I -->|"③ Kết thúc HĐ<br/>(nhận xe)"| R["CHỜ HOÀN CỌC (6)<br/>→ hoàn tất / hoàn cọc"]
+    I -->|"④ Tịch thu"| S["TỊCH THU (8)"]
+    classDef ongoing fill:#14532d,stroke:#22c55e,color:#dcfce7;
+    classDef incident fill:#7f1d1d,stroke:#ef4444,color:#fecaca;
+    classDef changing fill:#78350f,stroke:#f59e0b,color:#fed7aa;
+    classDef other fill:#334155,stroke:#64748b,color:#e2e8f0;
+    class O,O2,O3 ongoing; class I incident; class C changing; class R,S other;
+  </pre></div>
+  <p>Các hướng từ <span class="st incident">SỰ CỐ (7)</span> (đọc từ bảng transition trong code):</p>
+  <ul>
+    <li><b>① → CHỜ GIAO XE MỚI (9):</b> đổi xe — đi qua nút <b>Đổi xe</b> (không chuyển tay được).</li>
+    <li><b>② → ĐANG THUÊ (3):</b> báo nhầm, NV revert mềm — tự xóa loại sự cố.</li>
+    <li><b>③ → CHỜ HOÀN CỌC (6) / HOÀN THÀNH (4):</b> kết thúc hợp đồng (qua dialog Nhận xe).</li>
+    <li><b>④ → TỊCH THU (8):</b> trường hợp giữ xe.</li>
+  </ul>
+
+  <h2>3) Luồng ĐỔI XE chi tiết — 2 bước (văn phòng → hiện trường)</h2>
+  <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    actor F as Hiện trường (NV giao xe)
+    actor VP as Văn phòng (admin)
+    participant BE as xanh-service
+    participant DB as PostgreSQL
+
+    Note over F,VP: Xe đang sự cố, khách cần xe khác đi tiếp
+    VP->>BE: Đổi xe (changeCar): chọn xe mới + tiền chênh + lý do
+    BE->>BE: Validate đơn đang SỰ CỐ (7)
+    BE->>BE: Validate xe mới còn ACTIVE
+    BE->>BE: Tính tiền chênh (trừ cọc / thu ngay / treo / trả sau)
+    BE->>DB: Gán xe mới vào đơn, status → CHỜ GIAO XE MỚI (9)
+    BE-->>VP: OK, chờ hiện trường giao xe
+
+    Note over F,VP: NV ra hiện trường đổi xe cho khách
+    F->>BE: Giao xe mới (performChangeCarDelivery): km + ảnh xe cũ/mới
+    BE->>BE: Validate đơn đang CHỜ GIAO XE MỚI (9)
+    BE->>BE: Thu nốt khoản treo (nếu chọn thu khi giao xe)
+    BE->>DB: Cắt lịch sử xe: đóng xe cũ, mở xe mới (closeAndOpenNew)
+    BE->>DB: status → ĐANG THUÊ (3) trên xe mới
+    BE-->>F: OK, khách tiếp tục thuê
+  </pre></div>
+
+  <h3>Bước 1 — Văn phòng chốt (changeCar): đơn 7 → 9</h3>
+  <ul>
+    <li>Chỉ chạy được khi đơn đang <span class="st incident">SỰ CỐ (7)</span>; bắt buộc nhập <b>lý do đổi xe</b>; xe mới phải còn <b>ACTIVE</b>.</li>
+    <li><b>Xử lý tiền chênh</b> (giá xe mới có thể khác xe cũ) — 4 cách:
+      <span class="pill">Trừ vào cọc</span>
+      <span class="pill">Thu ngay tại văn phòng</span>
+      <span class="pill">Thu khi giao xe (treo)</span>
+      <span class="pill">Trả sau khi trả xe</span>
+      Chênh âm (xe mới rẻ hơn) → hoàn ở cọc cuối kỳ.</li>
+    <li>Gán xe mới vào <b>chính đơn đó</b> (cùng 1 hợp đồng, không tạo đơn mới), status → <span class="st changing">CHỜ GIAO XE MỚI (9)</span>, xóa loại sự cố.</li>
+  </ul>
+
+  <h3>Bước 2 — Hiện trường giao xe (performChangeCarDelivery): đơn 9 → 3</h3>
+  <ul>
+    <li>Chỉ chạy được khi đơn đang <span class="st changing">CHỜ GIAO XE MỚI (9)</span>.</li>
+    <li>Ghi nhận <b>xe cũ trả về</b> (số km cuối + ảnh) và <b>xe mới giao đi</b> (số km đầu + ảnh).</li>
+    <li>Nếu bước 1 chọn "thu khi giao xe" → <b>thu nốt tiền chênh</b> tại đây (tạo phiếu thu).</li>
+    <li><b>Cắt lịch sử thuê xe</b> (<code>booking_car_history</code>): đóng dòng xe cũ tới hôm trước, mở dòng xe mới từ hôm nay — xem mục 4.</li>
+    <li>status → <span class="st ongoing">ĐANG THUÊ (3)</span> trên xe mới.</li>
+  </ul>
+  <div class="callout info"><b>Vì sao tách 2 bước?</b> Văn phòng chốt xe + tiền trước (trên hệ thống); NV ngoài hiện trường mới thực sự đưa xe + chụp ảnh + ghi số km. Code khóa: KHÔNG cho nhảy thẳng 7→3 hay 9→3 bằng đổi trạng thái tay — phải đi đúng 2 nút này để đảm bảo có ảnh/km/tiền.</div>
+
+  <h2>4) Tác động lên cách tính tỷ lệ lấp đầy (chia ngày)</h2>
+  <p>Khi giao xe mới, hệ thống <b>cắt đôi</b> khoảng thuê theo ngày đổi (hôm nay):</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+    A["Đơn thuê 01/06 → 10/06"] --> B["Đổi xe ngày 05/06"]
+    B --> C["Xe CŨ: 01/06 → 04/06<br/>(đóng tới hôm trước ngày đổi)"]
+    B --> D["Xe MỚI: 05/06 → 10/06<br/>(mở từ ngày đổi)"]
+    classDef step fill:#1e293b,stroke:#64748b,color:#e2e8f0;
+    classDef old fill:#334155,stroke:#94a3b8,color:#e2e8f0;
+    classDef new fill:#14532d,stroke:#22c55e,color:#dcfce7;
+    class A,B step; class C old; class D new;
+  </pre></div>
+  <ul>
+    <li>Mỗi xe chỉ được tính <b>những ngày nó thực sự chở khách</b> → tỷ lệ lấp đầy không bị đếm trùng.</li>
+    <li>Ngày đổi xe (05/06) tính cho <b>xe mới</b>; xe cũ dừng ở 04/06.</li>
+  </ul>
+  <p class="note">Chi tiết công thức: <code>02-technical/cach-tinh-ty-le-lap-day.html</code> (mục dữ liệu vào <code>booking_car_history</code>).</p>
+
+  <h2>5) Lưu ý / điểm cần để ý (đọc từ code)</h2>
+  <div class="callout warn"><b>⚠️ Đổi xe KHÔNG tự đưa xe cũ (xe hỏng) vào xưởng.</b> Sau khi đổi, code không tự đổi trạng thái xe cũ sang MAINTENANCE. Muốn xe hỏng ngừng cho thuê + nằm xưởng, admin phải <b>tạo phiếu bảo dưỡng PENDING riêng</b> cho xe đó (xem <code>luong-bao-duong-chi-tiet.html</code>). Nếu quên, xe hỏng vẫn có thể bị đặt lại.</div>
+  <div class="callout info"><b>Đổi xe = cùng 1 hợp đồng:</b> không tạo đơn mới, không đổi mã đơn. Lịch sử (mã đơn, tiền, khách) giữ nguyên, chỉ đổi xe gán vào đơn + cắt dòng lịch sử thuê xe.</div>
+  <div class="callout ok"><b>Báo nhầm an toàn:</b> nếu lỡ báo sự cố, NV bấm đưa đơn về ĐANG THUÊ (7→3) — hệ thống tự xóa loại sự cố, không phát sinh tiền.</div>
+
+  <footer>
+    Sinh từ đọc code <code>BookingServiceImpl</code> (báo sự cố · <code>changeCar</code> · <code>performChangeCarDelivery</code> · bảng transition) + <code>BookingCarHistoryServiceImpl.closeAndOpenNew</code> (2026-06-09).
+    Liên quan: F24 (đổi xe do sự cố) trong <code>luong-nghiep-vu-tong-hop.html</code>; <code>luong-bao-duong-chi-tiet.html</code> (đưa xe hỏng vào xưởng); <code>02-technical/cach-tinh-ty-le-lap-day.html</code>.
+    <br>Cần internet để vẽ sơ đồ (Mermaid tải từ CDN).
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad:true, theme:'dark', securityLevel:'loose', flowchart:{ curve:'basis', htmlLabels:true } });
+</script>
+</body>
+</html>

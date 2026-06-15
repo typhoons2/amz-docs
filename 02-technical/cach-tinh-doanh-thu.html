@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cách tính Doanh thu — trang /report/revenue — AMZ</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --warnbg:#3a2e12; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6;padding:0 0 80px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#064e3b,#0f172a);padding:38px 0 28px;border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 6px;font-size:27px;letter-spacing:-.5px}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:#1e293b;border:1px solid var(--line);padding:4px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .badge b{color:var(--accent2)}
+  h2{font-size:21px;margin:36px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h3{font-size:17px;margin:22px 0 8px;color:#cbd5e1}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:14px 0}
+  .diagram{background:#0b1220;border-radius:12px;padding:16px;overflow:auto;text-align:center;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:#0b1220;color:var(--accent2);font-weight:600}
+  tr:nth-child(even) td{background:#172033}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;color:#fbbf24;font-family:Consolas,monospace}
+  ul,ol{padding-left:20px} li{margin:7px 0}
+  .callout{border-radius:12px;padding:14px 18px;margin:14px 0;border-left:4px solid}
+  .callout.warn{background:var(--warnbg);border-color:var(--warn)} .callout.warn b{color:#fbbf24}
+  .callout.info{background:#0c2a3a;border-color:var(--accent2)} .callout.info b{color:#7dd3fc}
+  .callout.ok{background:#0c2e1c;border-color:var(--accent)} .callout.ok b{color:#86efac}
+  .callout.bad{background:#3a1212;border-color:var(--danger)} .callout.bad b{color:#fca5a5}
+  .note{color:var(--muted);font-size:13px;font-style:italic}
+  .formula{background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:12px 0;font-family:Consolas,monospace;font-size:13.5px;color:#e2e8f0;line-height:1.9}
+  .formula b{color:var(--accent)}
+  .yes{color:#86efac;font-weight:700} .no{color:#fca5a5;font-weight:700}
+  .daystrip{display:flex;gap:4px;flex-wrap:wrap;margin:10px 0}
+  .day{flex:1;min-width:42px;text-align:center;border:1px solid var(--line);border-radius:7px;padding:7px 3px;font-size:11px;background:#0b1220}
+  .day .d{color:var(--muted);font-size:10px} .day .v{color:var(--accent);font-weight:700;margin-top:3px;font-size:11px}
+  .day.in{background:#0c2e1c;border-color:var(--accent)}
+  .day.out{opacity:.4}
+  footer{margin-top:46px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>📊 Cách tính Doanh thu — trang Báo cáo doanh thu</h1>
+    <div style="color:var(--muted)"><code>/report/revenue</code> · Doanh thu − Chi phí = Lợi nhuận</div>
+    <div class="badges">
+      <span class="badge">Cập nhật: <b>2026-06-09</b></span>
+      <span class="badge">Nguồn: <b>ReportServiceImpl + BookingRevenueCalculator</b></span>
+      <span class="badge">Đã đối chiếu code</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="callout info">
+    <b>Tóm tắt:</b> Trang hiện 3 số — <b>Tổng doanh thu</b>, <b>Tổng chi phí</b>, <b>Lợi nhuận</b> — kèm biểu đồ theo ngày/tháng. Lọc theo khoảng ngày + bến xe.
+    <b>Doanh thu</b> tính từ <b>hợp đồng</b> (rải tiền thuê theo ngày), <b>Chi phí</b> tính từ <b>phiếu chi</b>. Hai nguồn khác nhau.
+  </div>
+
+  <div class="formula">
+    <b>Lợi nhuận</b> = Tổng doanh thu − Tổng chi phí
+  </div>
+
+  <h2>1) Doanh thu — rải tiền thuê hợp đồng theo từng ngày</h2>
+  <div class="callout warn">
+    <b>⚠️ Điểm dễ hiểu nhầm nhất:</b> Doanh thu ở đây <b>KHÔNG phải tiền đã thu thực tế</b>. Nó là <b>tiền thuê của hợp đồng chia đều ra từng ngày thuê</b>, rồi cộng những ngày rơi vào khoảng lọc của báo cáo.
+  </div>
+
+  <div class="formula">
+    Tiền thuê / ngày = <b>Tổng tiền thuê hợp đồng</b> ÷ <b>Tổng số ngày thuê</b><br>
+    Tổng số ngày thuê = (ngày trả − ngày nhận) + 1<br>
+    Doanh thu trong khoảng = (Tiền thuê / ngày) × <b>số ngày HĐ nằm trong khoảng lọc</b>
+  </div>
+
+  <h3>Ví dụ bằng số: HĐ 01/06 → 10/06, tổng 10.000.000đ → 1.000.000đ/ngày</h3>
+  <p class="note">Lọc báo cáo <b>01/06 – 05/06</b> → chỉ 5 ngày đầu được cộng (dù khách đã trả đủ 10tr):</p>
+  <div class="daystrip">
+    <div class="day in"><div class="d">01/06</div><div class="v">1tr</div></div>
+    <div class="day in"><div class="d">02/06</div><div class="v">1tr</div></div>
+    <div class="day in"><div class="d">03/06</div><div class="v">1tr</div></div>
+    <div class="day in"><div class="d">04/06</div><div class="v">1tr</div></div>
+    <div class="day in"><div class="d">05/06</div><div class="v">1tr</div></div>
+    <div class="day out"><div class="d">06/06</div><div class="v">1tr</div></div>
+    <div class="day out"><div class="d">07/06</div><div class="v">1tr</div></div>
+    <div class="day out"><div class="d">08/06</div><div class="v">1tr</div></div>
+    <div class="day out"><div class="d">09/06</div><div class="v">1tr</div></div>
+    <div class="day out"><div class="d">10/06</div><div class="v">1tr</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Khoảng lọc báo cáo</th><th>Số ngày HĐ nằm trong</th><th>Doanh thu hiện ra</th></tr></thead>
+    <tbody>
+      <tr><td>01/06 – 30/06 (cả tháng)</td><td>10</td><td><b>10.000.000đ</b></td></tr>
+      <tr><td>01/06 – 05/06</td><td>5</td><td><b>5.000.000đ</b></td></tr>
+      <tr><td>06/06 – 10/06</td><td>5</td><td><b>5.000.000đ</b></td></tr>
+      <tr><td>01/07 – 31/07 (không trùng)</td><td>0</td><td><b>0đ</b></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Hợp đồng nào được tính doanh thu</h3>
+  <table>
+    <thead><tr><th>Trạng thái đơn</th><th>Tính?</th><th>Lý do</th></tr></thead>
+    <tbody>
+      <tr><td>PENDING (1), CONFIRMED (2)</td><td class="no">Không</td><td>Chưa giao xe → chưa phát sinh doanh thu</td></tr>
+      <tr><td>CANCELLED (5) — <b>chưa thu đồng nào</b></td><td class="no">Không</td><td>Hủy trước khi giao xe (đã trả=0 và cọc=0)</td></tr>
+      <tr><td>CANCELLED (5) — <b>đã thu tiền</b></td><td class="yes">Có</td><td>Hủy sau khi giao xe, đã thu (trả&gt;0 hoặc cọc&gt;0)</td></tr>
+      <tr><td>ONGOING (3), COMPLETED (4), REFUND_PENDING (6), INCIDENT (7), SEIZED (8), CHANGING_CAR (9)</td><td class="yes">Có</td><td>Đã giao xe / đang phát sinh</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Kèm điều kiện trùng khoảng: <code>ngày nhận ≤ cuối khoảng</code> và <code>ngày trả ≥ đầu khoảng</code>.</p>
+
+  <div class="callout bad">
+    <b>⚠️ Doanh thu này chỉ là tiền thuê gốc</b> (<code>rental_price</code>) — <b>KHÔNG</b> gồm phụ thu, phí giao xe tận nơi, dịch vụ thêm. Nên con số "Tổng doanh thu" có thể <b>thấp hơn</b> tổng tiền khách thực trả.
+  </div>
+
+  <h2>2) Chi phí — từ phiếu chi thực tế</h2>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+    T["Mọi phiếu chi<br/>(transactions type=2)"] --> F{"Loại trừ<br/>phiếu cọc"}
+    F -->|"bỏ DEPOSIT_COLLECT<br/>DEPOSIT_REFUND"| E["Tổng chi phí"]
+    G["Chi xăng dầu"] --> E
+    R["Chi sửa chữa"] --> E
+    I["Chi bảo hiểm"] --> E
+    O["Chi phí khác"] --> E
+    classDef box fill:#1e293b,stroke:#64748b,color:#e2e8f0;
+    classDef sum fill:#3a1212,stroke:#ef4444,color:#fecaca;
+    class T,G,R,I,O,F box; class E sum;
+  </pre></div>
+  <ul>
+    <li>Lấy các <b>phiếu chi</b> (type=2), <b>trừ phiếu cọc</b> (cọc không phải chi phí kinh doanh).</li>
+    <li><b>Ngày tính chi phí:</b> nếu phiếu gắn 1 hợp đồng → tính vào <b>ngày bắt đầu hợp đồng</b> (không phải ngày bấm phiếu); nếu không gắn → ngày bấm phiếu.</li>
+  </ul>
+
+  <h2>3) Lợi nhuận & biểu đồ</h2>
+  <div class="formula">
+    Tổng doanh thu = Σ doanh thu rải-theo-ngày của mọi hợp đồng<br>
+    Tổng chi phí   = Σ phiếu chi (type=2, trừ cọc)<br>
+    <b>Lợi nhuận    = Tổng doanh thu − Tổng chi phí</b>
+  </div>
+  <ul>
+    <li>Biểu đồ chia theo <b>ngày</b> (mỗi cột 1 ngày) hoặc <b>tháng</b> (gộp cả tháng).</li>
+    <li>Mỗi cột: doanh thu · chi phí · lợi nhuận của kỳ đó. Kỳ trống vẫn hiện cột = 0.</li>
+  </ul>
+
+  <h2>4) ⚠️ Phí bảo dưỡng KHÔNG tự vào "Chi phí"</h2>
+  <div class="callout bad">
+    Phí ở <b>phiếu bảo dưỡng</b> không tự sinh phiếu chi → <b>không</b> lọt vào "Tổng chi phí" của báo cáo này. Chỉ vào khi admin <b>tự tạo phiếu chi "Chi sửa chữa"</b> cho khoản thực chi.
+    Nếu quên → <b>Lợi nhuận bị báo cao hơn thực tế</b> đúng bằng tiền sửa xe.
+  </div>
+  <table>
+    <thead><tr><th></th><th>Thực tế</th><th>Báo cáo (nếu quên phiếu chi)</th></tr></thead>
+    <tbody>
+      <tr><td>Doanh thu</td><td>100tr</td><td>100tr</td></tr>
+      <tr><td>Chi sửa xe (đã nhập phiếu bảo dưỡng)</td><td>15tr</td><td><span class="no">0 (sót)</span></td></tr>
+      <tr><td><b>Lợi nhuận</b></td><td><b>85tr</b></td><td><b class="no">100tr ❌</b></td></tr>
+    </tbody>
+  </table>
+  <p class="note">Đang chờ BE xác nhận đây là chủ đích (admin tự nhập phiếu chi) hay sót — xem <code>luong-bao-duong-chi-tiet.html</code>.</p>
+
+  <footer>
+    Sinh từ đọc code <code>ReportServiceImpl.getRevenueReport</code> · <code>BookingRevenueCalculator.calcByDay</code> · <code>BookingRepository.findForRevenueReport</code> · <code>TransactionRepository.findTransactionsForReport</code> (2026-06-09).
+    Liên quan: <code>cach-tinh-ty-le-lap-day.html</code> (tỷ lệ lấp đầy), <code>../01-business/luong-bao-duong-chi-tiet.html</code> (phí bảo dưỡng).
+    <br>Cần internet để vẽ sơ đồ (Mermaid tải từ CDN).
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad:true, theme:'dark', securityLevel:'loose', flowchart:{ curve:'basis', htmlLabels:true } });
+</script>
+</body>
+</html>

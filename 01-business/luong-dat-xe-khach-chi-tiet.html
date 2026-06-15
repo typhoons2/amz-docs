@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chi tiết luồng đặt xe phía khách — AMZ</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --warnbg:#3a2e12;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6;padding:0 0 80px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#0c4a6e,#0f172a);padding:38px 0 28px;border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 6px;font-size:27px;letter-spacing:-.5px}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:#1e293b;border:1px solid var(--line);padding:4px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .badge b{color:var(--accent2)}
+  h2{font-size:21px;margin:36px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:14px 0}
+  .diagram{background:#0b1220;border-radius:12px;padding:16px;overflow:auto;text-align:center;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:#0b1220;color:var(--accent2);font-weight:600}
+  tr:nth-child(even) td{background:#172033}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;color:#fbbf24;font-family:Consolas,monospace}
+  .callout{border-radius:12px;padding:14px 18px;margin:14px 0;border-left:4px solid}
+  .callout.warn{background:var(--warnbg);border-color:var(--warn)} .callout.warn b{color:#fbbf24}
+  .callout.info{background:#0c2a3a;border-color:var(--accent2)} .callout.info b{color:#7dd3fc}
+  .callout.ok{background:#0c2e1c;border-color:var(--accent)} .callout.ok b{color:#86efac}
+  .note{color:var(--muted);font-size:13px;font-style:italic}
+  /* steps */
+  .step{display:flex;gap:14px;margin:12px 0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .step .n{flex-shrink:0;width:34px;height:34px;border-radius:9px;background:#0c4a6e;color:#7dd3fc;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:monospace}
+  .step.warnstep .n{background:#3a2e12;color:#fbbf24}
+  .step .body{flex:1}
+  .step .body b{color:#cbd5e1}
+  /* state timeline */
+  .states{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:16px 0}
+  .st{padding:8px 14px;border-radius:10px;font-weight:700;font-size:14px;border:1px solid}
+  .st.p{background:#3a2e12;color:#fbbf24;border-color:#f59e0b}
+  .st.c{background:#0c4a6e;color:#7dd3fc;border-color:#0ea5e9}
+  .st.o{background:#14532d;color:#bbf7d0;border-color:#22c55e}
+  .arrow{color:var(--muted);font-size:18px}
+  .st small{display:block;font-weight:400;font-size:11px;color:rgba(255,255,255,.6)}
+  footer{margin-top:46px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🚗 Chi tiết luồng đặt xe phía khách</h1>
+    <div style="color:var(--muted)">AMZ cho thuê xe · từ lúc khách bấm đặt → admin tiếp nhận</div>
+    <div class="badges">
+      <span class="badge">Cập nhật: <b>2026-06-09</b></span>
+      <span class="badge">Nguồn: <b>BookingPublicController + createPublicBooking</b></span>
+      <span class="badge">Đã đối chiếu code</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <h2>Các endpoint khách dùng</h2>
+  <table>
+    <thead><tr><th>Endpoint (<code>/api/v1/xanh/bookings</code>)</th><th>Đăng nhập?</th><th>Việc</th></tr></thead>
+    <tbody>
+      <tr><td><code>calculate-price</code></td><td>Không cần</td><td>Tính giá trước khi đặt</td></tr>
+      <tr><td><code>create</code></td><td>Khách (*)</td><td>Tạo đơn đặt xe</td></tr>
+      <tr><td><code>lookup</code></td><td>Không cần</td><td>Tra cứu đơn bằng <b>mã + SĐT</b> (chưa đăng nhập)</td></tr>
+      <tr><td><code>detail</code></td><td>Khách</td><td>Xem chi tiết đơn của mình</td></tr>
+      <tr><td><code>my-history</code></td><td>Khách</td><td>Lịch sử đặt xe</td></tr>
+    </tbody>
+  </table>
+  <p class="note">(*) <code>@PreAuthorize</code> đang tạm ẩn trong code (ghi chú "guest checkout Scope A 2026-06-02") → hiện có thể đặt không cần đăng nhập; nếu có token thì lấy <code>customerId</code> từ đó.</p>
+
+  <h2>Sơ đồ tổng quát</h2>
+  <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach (app/web)
+    participant X as xanh-service
+    participant TE as Telegram
+    participant AD as Admin
+    K->>X: calculate-price (xem gia truoc)
+    X-->>K: Gia thue + phi giao + giam gia
+    K->>X: bookings/create (chon xe, thoi gian, coc, ma KM)
+    Note over X: Khoa xe (lock) + validate ACTIVE<br/>BO QUA check trung lich
+    X->>X: Tao don PENDING (ma TX...) + coc theo dong xe
+    X->>TE: Bao "booking Website - can xac nhan"
+    X-->>K: Tra ma don + tong tien
+    AD->>X: Xac nhan (auto-cancel PENDING trung slot)
+    X-->>AD: CONFIRMED
+    AD->>X: Giao xe (perform-delivery)
+    X-->>AD: ONGOING
+    K->>X: my-history / detail / lookup (theo doi)
+  </pre></div>
+
+  <h2>Trạng thái đơn đi qua</h2>
+  <div class="states">
+    <span class="st p">PENDING (1)<small>khách vừa đặt</small></span>
+    <span class="arrow">→</span>
+    <span class="st c">CONFIRMED (2)<small>admin xác nhận</small></span>
+    <span class="arrow">→</span>
+    <span class="st o">ONGOING (3)<small>đã giao xe</small></span>
+  </div>
+
+  <h2>Luồng đặt xe (<code>createPublicBooking</code>) — từng bước</h2>
+
+  <div class="step"><div class="n">1</div><div class="body"><b>Chọn xe (Smart Booking).</b> Khách gửi <b>xe cụ thể</b> (<code>carId</code>) HOẶC <b>loại xe + màu</b> (<code>specificationId + color</code>) → hệ tự tìm 1 xe rảnh. Hết xe màu đó trong khung giờ → báo <i>"Hết xe màu này trong khung giờ bạn chọn"</i>.</div></div>
+
+  <div class="step"><div class="n">2</div><div class="body"><b>Kiểm thời gian.</b> Giờ trả phải sau giờ nhận.</div></div>
+
+  <div class="step"><div class="n">3</div><div class="body"><b>Khóa xe (pessimistic lock).</b> <code>findByIdWithLock</code> — chống 2 khách đặt trúng 1 xe cùng lúc.</div></div>
+
+  <div class="step"><div class="n">4</div><div class="body"><b>Kiểm xe ACTIVE + dịch vụ thuê ACTIVE.</b> Xe/dịch vụ ngừng hoạt động → từ chối.</div></div>
+
+  <div class="step warnstep"><div class="n">5</div><div class="body"><b>⚠️ Bỏ qua check trùng lịch.</b> Public booking <b>luôn tạo PENDING</b> và <b>không chặn trùng slot</b>. Nhiều khách có thể cùng đặt 1 xe 1 khung giờ. Khi admin xác nhận sẽ <b>auto-cancel các PENDING khác trùng slot</b> — ai được duyệt mới chốt.</div></div>
+
+  <div class="step"><div class="n">6</div><div class="body"><b>Tính tiền.</b> Giá thuê theo thời gian + <b>phí giao/nhận tận nơi</b> (chỉ tính khi có địa chỉ giao tận nơi). VAT public thường = 0. <b>Khuyến mãi:</b> nhập mã → giảm trên <b>giá thuê</b> (không gồm phí); mã sai → từ chối luôn. → Tổng = (thuê + phí) − giảm.</div></div>
+
+  <div class="step"><div class="n">7</div><div class="body"><b>Tạo đơn.</b> Sinh <b>mã đơn</b> <code>TX + ngày + 4 số ngẫu nhiên</code>; trạng thái <b>PENDING (1)</b>; <b>tiền cọc theo dòng xe</b> (CarSpecification); <b>cách đặt cọc</b> do khách chọn (<code>depositMethodId</code>); nguồn = WEBSITE; chưa trả trước; preload sẵn <b>ảnh CCCD/GPLX</b> của khách nếu có.</div></div>
+
+  <div class="step"><div class="n">8</div><div class="body"><b>Lưu đơn + ghi nhận mã khuyến mãi.</b> Ghi usage <b>không try-catch</b> → nếu lỗi thì <b>rollback cả đơn</b> (tránh khách được giảm chui).</div></div>
+
+  <div class="step"><div class="n">9</div><div class="body"><b>Báo Telegram</b> cho đội vận hành: <i>"booking từ Website — cần xác nhận sớm"</i>. Đây là sự kiện thông báo <b>duy nhất đang bật</b> (khớp phần realtime đã phân tích).</div></div>
+
+  <h2>Sau khi đặt — admin tiếp nhận</h2>
+  <div class="card">
+    <code>PENDING (1)</code> → admin bấm <b>Xác nhận</b> → <code>CONFIRMED (2)</code> (auto-cancel PENDING trùng) → admin <b>giao xe</b> (luồng F06) → <code>ONGOING (3)</code>.<br>
+    Khách theo dõi qua <code>my-history</code> / <code>detail</code> / <code>lookup</code> (tra mã + SĐT khi chưa đăng nhập).
+  </div>
+
+  <h2>2 điểm đáng chú ý (đọc từ code)</h2>
+  <div class="callout warn">
+    <b>① KYC KHÔNG bị chặn ở bước đặt.</b> Code chỉ <b>preload ảnh</b> CCCD/GPLX nếu có, <b>không</b> kiểm "KYC đã duyệt" mới cho đặt. Việc duyệt KYC là admin làm khi giao xe (F02/F06), không phải điều kiện chặn lúc đặt online. <span class="note">(F05 mô tả cũ "chọn CCCD/bằng lái đã duyệt" cần sửa cho khớp.)</span>
+  </div>
+  <div class="callout warn">
+    <b>② ⚠️ Đơn khách tự đặt online KHÔNG ghi <code>booking_car_history</code>.</b> Hàm <code>createInitialRow</code> (ghi nhật ký xe) <b>chỉ được gọi trong luồng admin tạo đơn</b>, KHÔNG có trong <code>createPublicBooking</code>. → Nối tiếp gap fill-rate: <b>đơn khách đặt online, dù sau đó giao xe (ONGOING), có thể không xuất hiện trong tỷ lệ lấp đầy</b> vì thiếu dòng history (chưa thấy bước nào khác tạo). Xem <code>02-technical/cach-tinh-ty-le-lap-day.html</code>.
+  </div>
+
+  <footer>
+    Sinh từ đọc code <code>BookingPublicController.java</code> + <code>BookingServiceImpl.createPublicBooking</code> (2026-06-09).
+    Liên quan: F03 (tìm xe), F04 (tính giá), F05 (đặt xe), F06 (giao xe) trong <code>luong-nghiep-vu-tong-hop.html</code>.
+    <br>Cần internet để vẽ sơ đồ (Mermaid tải từ CDN).
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad:true, theme:'dark', securityLevel:'loose',
+    sequence:{ useMaxWidth:true, wrap:true }, flowchart:{ curve:'basis' } });
+</script>
+</body>
+</html>

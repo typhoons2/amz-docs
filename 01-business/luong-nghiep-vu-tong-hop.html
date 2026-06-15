@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luồng nghiệp vụ tổng hợp — Khách → Admin (AMZ)</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --warnbg:#3a2e12;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6;padding:0 0 80px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#14532d,#0f172a);padding:38px 0 28px;border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 6px;font-size:28px;letter-spacing:-.5px}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:#1e293b;border:1px solid var(--line);padding:4px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .badge b{color:var(--accent)}
+  h2{font-size:22px;margin:38px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:16px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#0b1220;color:var(--accent2);font-weight:600}
+  tr:nth-child(even) td{background:#172033}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;color:#fbbf24;font-family:Consolas,monospace}
+  .callout{border-radius:12px;padding:14px 18px;margin:16px 0;border-left:4px solid}
+  .callout.warn{background:var(--warnbg);border-color:var(--warn)}
+  .callout.warn b{color:#fbbf24}
+  .callout.info{background:#0c2a3a;border-color:var(--accent2)}
+  .callout.ok{background:#0c2e1c;border-color:var(--accent)}
+  .nav{display:flex;flex-wrap:wrap;gap:7px;margin:18px 0}
+  .nav a{background:#1e293b;border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12.5px;color:var(--txt);text-decoration:none;transition:.15s}
+  .nav a:hover{background:#14532d;border-color:var(--accent)}
+  .flow{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:18px 0;scroll-margin-top:14px}
+  .flow-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .fnum{background:#14532d;color:#86efac;font-weight:800;font-family:monospace;border-radius:8px;padding:4px 10px;font-size:15px;flex-shrink:0}
+  .flow-head h3{margin:0;font-size:18px}
+  .meta{color:var(--muted);font-size:13px;margin-bottom:10px}
+  .meta b{color:var(--accent2)}
+  ol{padding-left:20px;margin:8px 0}
+  ol li{margin:6px 0;font-size:14px}
+  ol li b{color:#cbd5e1}
+  .diagram{background:#0b1220;border-radius:12px;padding:14px;overflow:auto;text-align:center;margin-top:12px}
+  .mermaid{font-size:14px}
+  .tag{font-size:11px;padding:1px 7px;border-radius:999px;font-weight:600;margin-left:6px}
+  .tag.kh{background:#0c4a6e;color:#7dd3fc}
+  .tag.ad{background:#4a1d6e;color:#d8b4fe}
+  .tag.both{background:#334155;color:#cbd5e1}
+  .socket-warn{color:#fbbf24;font-size:12.5px}
+  .note{color:var(--muted);font-size:13px;font-style:italic}
+  footer{margin-top:48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+  b.new{color:#fca5a5}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🔄 Luồng nghiệp vụ tổng hợp — Khách → Admin</h1>
+    <div style="color:var(--muted)">AMZ cho thuê xe · 24 luồng end-to-end</div>
+    <div class="badges">
+      <span class="badge">Cập nhật: <b>2026-06-09</b></span>
+      <span class="badge">24 luồng (F01–F24)</span>
+      <span class="badge">Đã đối chiếu code thật</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="callout warn">
+    <b>⚠️ Đọc trước — về phần "Socket/Realtime" trong các luồng:</b> các dòng <b>"Socket"</b> ở từng luồng bên dưới (NEW_TRIP, BOOKING_UPDATE...) là <b>suy đoán và phần lớn KHÔNG đúng</b>. Đã xác minh trong code 2026-06-09: <code>xanh-service</code> <b>không</b> đẩy tin realtime (grep <code>convertAndSend</code>/<code>RedisTemplate</code> = 0). Thông báo đơn mới thật sự đi qua <b>Telegram</b> và <b>chỉ "đơn mới" (BookingCreated)</b> đang bật. <code>amz-socket</code> có hạ tầng WebSocket nhưng <b>chưa tìm thấy ai đẩy tin vào Redis</b> → realtime panel admin có thể chưa chạy. Đừng dựa vào các dòng "Socket" cho tới khi xác minh được bên đẩy Redis.
+  </div>
+
+  <div class="card">
+    <b>📖 Cách đọc tài liệu này</b>
+    <ul style="margin:8px 0 0">
+      <li>Mỗi luồng mô tả 4 ý: <b>(1)</b> Khách làm gì · <b>(2)</b> Đường đi (gateway → service → bảng DB) · <b>(3)</b> Socket/realtime · <b>(4)</b> Admin nhìn thấy/xử lý gì.</li>
+      <li><b>responseCode:</b> xanh-service = <code>"00"</code>, auth = <code>"200"</code>. Luôn check responseCode, không chỉ HTTP status.</li>
+      <li><b>Tên bảng DB</b> đã xác minh — xem bảng tra cuối trang (nhiều bảng có tiền tố <code>new_</code>).</li>
+    </ul>
+  </div>
+
+  <h2>Nhảy nhanh tới luồng</h2>
+  <div class="nav">
+    <a href="#f01">F01 Đăng ký/đăng nhập</a>
+    <a href="#f02">F02 KYC</a>
+    <a href="#f03">F03 Tìm xe</a>
+    <a href="#f04">F04 Tính giá</a>
+    <a href="#f05">F05 Đặt xe</a>
+    <a href="#f06">F06 Giao xe</a>
+    <a href="#f07">F07 Nhận xe</a>
+    <a href="#f08">F08 Gia hạn/đổi xe</a>
+    <a href="#f09">F09 Hủy + hoàn cọc</a>
+    <a href="#f10">F10 In hợp đồng</a>
+    <a href="#f11">F11 Quản lý xe</a>
+    <a href="#f12">F12 Quản lý khách</a>
+    <a href="#f13">F13 Tài chính</a>
+    <a href="#f14">F14 Cấu hình</a>
+    <a href="#f15">F15 Nhân viên</a>
+    <a href="#f16">F16 Địa điểm</a>
+    <a href="#f17">F17 CMS</a>
+    <a href="#f18">F18 Phạt nguội</a>
+    <a href="#f19">F19 Dashboard</a>
+    <a href="#f20">F20 Hồ sơ khách</a>
+    <a href="#f21">F21 Migration</a>
+    <a href="#f22">F22 Dịch vụ thuê</a>
+    <a href="#f23">F23 Duyệt bảo trì</a>
+    <a href="#f24">F24 Đổi xe sự cố</a>
+  </div>
+
+  <h2>Bảng tổng hợp nhanh</h2>
+  <table>
+    <thead><tr><th>Luồng</th><th>Khách làm gì</th><th>Service đi qua</th><th>Admin xử lý gì</th></tr></thead>
+    <tbody>
+      <tr><td>F01 Đăng ký/đăng nhập</td><td>Đăng ký SĐT/email, OTP, đăng nhập (kể cả Google)</td><td>gateway → customer-auth</td><td>(Admin login riêng qua internal-auth)</td></tr>
+      <tr><td>F02 KYC</td><td>Upload CCCD + bằng lái, chờ duyệt</td><td>gateway → storage(S3) + xanh-service</td><td>Duyệt/từ chối KYC, OCR CCCD</td></tr>
+      <tr><td>F03 Tìm xe</td><td>Tìm xe rảnh, xem chi tiết, xem lịch</td><td>gateway → xanh-service</td><td>Quản lý xe + lịch Gantt</td></tr>
+      <tr><td>F04 Tính giá</td><td>Tính giá, nhập mã khuyến mãi</td><td>gateway → xanh-service</td><td>Tạo/sửa mã khuyến mãi</td></tr>
+      <tr><td>F05 Đặt xe</td><td>Tạo booking, chọn cọc</td><td>gateway → xanh-service</td><td>Thấy đơn mới PENDING, xác nhận</td></tr>
+      <tr><td>F06 Giao xe</td><td>(không) — Admin thao tác</td><td>xanh-service</td><td>Dialog Giao xe, thu cọc + tiền thuê</td></tr>
+      <tr><td>F07 Nhận xe</td><td>(không)</td><td>xanh-service</td><td>Dialog Nhận xe, ghi phụ thu, quyết toán</td></tr>
+      <tr><td>F08 Gia hạn/Đổi xe</td><td>Khách yêu cầu (hotline)</td><td>xanh-service</td><td>Gia hạn / đổi xe trên panel</td></tr>
+      <tr><td>F09 Hủy + hoàn cọc</td><td>Tự hủy (nếu cho phép)</td><td>xanh-service</td><td>Xác nhận hủy, hoàn cọc</td></tr>
+      <tr><td>F10 In hợp đồng</td><td>(không)</td><td>xanh-service → Google Docs</td><td>In HĐ Google Docs / PDF</td></tr>
+      <tr><td>F11 Quản lý xe</td><td>(không)</td><td>xanh-service</td><td>Tạo/sửa/xóa xe, bảo dưỡng</td></tr>
+      <tr><td>F12 Quản lý khách</td><td>(không)</td><td>xanh-service</td><td>Tìm/sửa khách, xem TK ngân hàng</td></tr>
+      <tr><td>F13 Tài chính</td><td>(không)</td><td>xanh-service</td><td>Phiếu thu/chi, báo cáo doanh thu/chi phí</td></tr>
+      <tr><td>F14 Cấu hình</td><td>(không)</td><td>xanh-service</td><td>Phụ phí, mẫu HĐ, phí vùng, ngân hàng</td></tr>
+      <tr><td>F15 Nhân viên</td><td>(không)</td><td>gateway → internal-auth</td><td>Tạo NV, gán role, gán công ty, khóa/mở</td></tr>
+      <tr><td>F16 Địa điểm</td><td>Xem thành phố/bến (khi đặt)</td><td>xanh-service</td><td>Tạo/sửa thành phố + bến</td></tr>
+      <tr><td>F17 CMS</td><td>Xem bài viết, nội dung trang</td><td>xanh-service</td><td>Soạn bài viết, nội dung trang, site setting</td></tr>
+      <tr><td>F18 Phạt nguội</td><td>(không)</td><td>xanh-service</td><td>Xem phạt nguội, thông báo sinh nhật/bảo dưỡng</td></tr>
+      <tr><td>F19 Dashboard</td><td>Xem dashboard khách</td><td>xanh-service</td><td>KPI hôm nay, giao/nhận, KYC chờ</td></tr>
+      <tr><td>F20 Hồ sơ khách</td><td>Sửa hồ sơ, xem lịch sử, xem tin tức</td><td>gateway → customer-auth + xanh-service</td><td>(gián tiếp)</td></tr>
+      <tr><td>F21 Migration</td><td>(không)</td><td>xanh-service → S3</td><td>Bấm di trú ảnh bài viết</td></tr>
+      <tr><td>F22 Dịch vụ thuê</td><td>Xem ds dịch vụ, giới thiệu</td><td>gateway → xanh-service</td><td>Tạo/sửa dịch vụ cho thuê, ảnh hưởng giá</td></tr>
+      <tr><td>F23 Duyệt bảo trì</td><td>(không)</td><td>xanh-service</td><td>Tạo yêu cầu bảo trì → duyệt phiếu (2 bước)</td></tr>
+      <tr><td>F24 Đổi xe sự cố</td><td>Báo xe lỗi/tai nạn (hotline)</td><td>xanh-service</td><td>Báo sự cố → đổi xe 2 bước → giao xe mới</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Chi tiết từng luồng</h2>
+
+  <!-- F01 -->
+  <section class="flow" id="f01">
+    <div class="flow-head"><span class="fnum">F01</span><h3>Khách đăng ký / đăng nhập tài khoản<span class="tag kh">khách</span></h3></div>
+    <div class="meta"><b>Domain:</b> authentication (customer-auth-service) · <b>Bề mặt:</b> customer app (Flutter) + web (Next.js)</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Mở app/web → đăng ký bằng SĐT hoặc email → nhận OTP (6 số) → nhập OTP → tạo mật khẩu. Lần sau đăng nhập bằng SĐT + mật khẩu, hoặc <b>Đăng nhập với Google</b>.<br><b class="new">⚠️ Kênh gửi OTP (đã xác minh):</b> email → gửi qua <b>Email (Brevo)</b>; số điện thoại → gửi qua <b>Zalo ZNS</b>. <b>KHÔNG có SMS.</b></li>
+      <li><b>Đường đi:</b> App/web → BFF (<code>/api/auth/login</code>, <code>register</code>, <code>verify-otp</code>, <code>google-login</code>) → gateway → <b>customer-auth-service</b> (8081). Gateway giới hạn đăng ký (2 lần/phút). Bảng: <code>customers</code>. ResponseCode <code>"200"</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Khách mới xuất hiện trong danh sách khách (F12) sau khi đăng ký. Admin <b>không</b> dùng luồng này — admin login riêng qua internal-auth (F15).</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach (app/web)
+    participant G as Gateway
+    participant A as customer-auth
+    K->>G: Dang ky (SDT/email)
+    G->>A: register
+    A-->>K: Gui OTP (Email hoac Zalo ZNS - KHONG SMS)
+    K->>G: Nhap OTP + tao mat khau
+    G->>A: verify-otp
+    A-->>K: Thanh cong, cap token
+    K->>G: Dang nhap (SDT+MK / Google)
+    G->>A: login
+    A-->>K: access + refresh token
+    </pre></div>
+  </section>
+
+  <!-- F02 -->
+  <section class="flow" id="f02">
+    <div class="flow-head"><span class="fnum">F02</span><h3>Khách bổ sung KYC (CCCD/bằng lái) → Admin duyệt<span class="tag both">khách+admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> customer (KYC) + storage (xanh-service) · <b>Bề mặt:</b> customer app + web</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Màn <b>Định danh</b> → chụp/tải CCCD trước+sau, nhập số/ngày hết hạn. Màn <b>Bằng lái</b> → tải ảnh, nhập hạng/số/ngày. Trạng thái: <b>Chờ duyệt / Đã duyệt / Từ chối (kèm lý do)</b>.</li>
+      <li><b>Đường đi:</b> Xin <b>presigned URL</b> (<code>POST /xanh/storage/presigned-url</code>) → upload thẳng lên <b>S3/MinIO</b> → gửi objectKey qua <code>customers/identity</code> + <code>customers/license</code> → xanh-service. Bảng: <code>user_identities</code>, <code>user_licenses</code> (cột <code>user_id</code> nhưng <b>trỏ customers(id)</b>).</li>
+      <li><b>Socket:</b> <span class="socket-warn">⚠️ (suy đoán — xem cảnh báo đầu trang)</span></li>
+      <li><b>Admin:</b> Màn <code>/management/kyc-approval</code> — danh sách KYC chờ, bấm <b>Duyệt</b>/<b>Từ chối</b> (nhập lý do). Có <b>OCR CCCD</b> tự điền thông tin. Backend: <code>customers/kyc/pending</code>, <code>identity/detail</code>, <code>license/reject</code>, <code>ocr/cccd</code>.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach
+    participant S3 as S3/MinIO
+    participant X as xanh-service
+    participant AD as Admin panel
+    K->>X: Xin presigned URL
+    X-->>K: uploadUrl
+    K->>S3: Upload anh CCCD/bang lai
+    K->>X: Nop objectKey (identity/license)
+    AD->>X: Duyet / Tu choi (kem ly do)
+    X-->>K: Cap nhat trang thai KYC
+    </pre></div>
+  </section>
+
+  <!-- F03 -->
+  <section class="flow" id="f03">
+    <div class="flow-head"><span class="fnum">F03</span><h3>Khách tìm xe → xem chi tiết → xem lịch xe<span class="tag kh">khách</span></h3></div>
+    <div class="meta"><b>Domain:</b> vehicle + location (xanh-service) · <b>Bề mặt:</b> customer app + web</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Chọn thời gian nhận/trả + địa điểm → tìm <b>xe rảnh</b> (đơn lẻ hoặc theo nhóm spec+màu) → xem <b>chi tiết xe</b> → xem <b>lịch xe</b> (bận/rảnh khoảng nào).</li>
+      <li><b>Đường đi:</b> <code>cars/available</code>, <code>available-grouped</code>, <code>cars/detail</code>, <code>cars/schedule</code>, <code>check-group-availability</code>; địa điểm <code>GET /xanh/cities</code> + <code>stations/search</code>. Public (không bắt buộc auth). Bảng: <code>new_cars</code>, <code>new_station_locations</code>, <code>cities</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Quản lý cùng tập xe ở <code>/list/car</code>, <code>/management/car</code>, lịch Gantt (<code>/schedule</code>). Trạng thái/giá/bến admin cấu hình phản ánh ngay sang kết quả tìm của khách.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach
+    participant X as xanh-service
+    K->>X: Tim xe ranh (thoi gian + dia diem)
+    X-->>K: Danh sach xe (don le / theo nhom)
+    K->>X: Xem chi tiet xe + lich xe
+    X-->>K: Thong tin xe, gia, ben, khoang ban/ranh
+    </pre></div>
+  </section>
+
+  <!-- F04 -->
+  <section class="flow" id="f04">
+    <div class="flow-head"><span class="fnum">F04</span><h3>Khách tính giá + áp mã khuyến mãi<span class="tag kh">khách</span></h3></div>
+    <div class="meta"><b>Domain:</b> booking (calculate-price) + promotion (xanh-service) · <b>Bề mặt:</b> customer app + web</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Hệ thống <b>tính giá</b> theo loại xe, thời gian, dịch vụ, địa điểm. Khách lấy <b>mã khuyến mãi khả dụng</b> và <b>nhập mã</b> để xem giá sau giảm.</li>
+      <li><b>Đường đi:</b> <code>bookings/calculate-price</code>, <code>promotions/available</code>, <code>promotions/check</code> → xanh-service. Bảng: <code>promotions</code>, <code>new_price_configurations</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Tạo/sửa/xóa mã ở <code>/management/promotion</code>. Mã admin tạo hiện trong danh sách khả dụng và ảnh hưởng giá khách thấy.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach
+    participant X as xanh-service
+    K->>X: calculate-price (xe + thoi gian + dich vu)
+    X-->>K: Gia tam tinh + tien coc
+    K->>X: promotions/check (nhap ma)
+    X-->>K: Gia sau giam
+    </pre></div>
+  </section>
+
+  <!-- F05 -->
+  <section class="flow" id="f05">
+    <div class="flow-head"><span class="fnum">F05</span><h3>Khách đặt xe → Admin xác nhận đơn mới<span class="tag both">khách+admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> booking + payment (xanh-service) · <b>Bề mặt:</b> customer app + web</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Nhập thông tin, chọn CCCD/bằng lái đã duyệt, chọn địa điểm nhận/trả, chọn <b>phương thức đặt cọc</b> (tiền mặt / chuyển khoản), xem lại → <b>xác nhận đặt xe</b>.</li>
+      <li><b>Đường đi:</b> <code>bookings/create</code> (lưu <code>depositMethodId</code>) → xanh-service. Bảng: <code>new_bookings</code>, <code>booking_logs</code>. Booking sinh ra ở <b>PENDING (1)</b>.</li>
+      <li><b>Socket:</b> <span class="socket-warn">⚠️ Thực tế: gửi <b>Telegram</b> "đơn mới" (chỉ BookingCreated đang bật), KHÔNG phải socket. Xem cảnh báo đầu trang.</span></li>
+      <li><b>Admin:</b> Đơn mới ở <code>/contract/contract-day</code> (lọc "chờ tiền cọc") + dashboard. Bấm <b>Xác nhận</b> → PENDING (1) → CONFIRMED (2) (<code>bookings/update-status</code>).</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach
+    participant X as xanh-service
+    participant TE as Telegram
+    participant AD as Admin
+    K->>X: bookings/create (chon coc)
+    X-->>K: Tao booking PENDING
+    X->>TE: Gui Telegram "don moi"
+    AD->>X: update-status: CONFIRMED
+    X-->>AD: Don da xac nhan
+    </pre></div>
+  </section>
+
+  <!-- F06 -->
+  <section class="flow" id="f06">
+    <div class="flow-head"><span class="fnum">F06</span><h3>Admin giao xe cho khách<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> booking (delivery) + finance (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Đến bến nhận xe (không thao tác hệ thống).</li>
+      <li><b>Đường đi:</b> Admin mở <b>dialog Giao xe</b> → ghi km bắt đầu, ảnh/video, <b>thu cọc + tiền thuê</b> → <code>perform-delivery</code>. Booking → <b>ONGOING (3)</b>. Bảng: <code>new_bookings</code>, <code>transactions</code> (PT DEPOSIT_COLLECT, RENTAL_PAYMENT), <code>booking_logs</code>.</li>
+      <li><b>Socket:</b> <span class="socket-warn">⚠️ (suy đoán)</span></li>
+      <li><b>Admin:</b> Màn <code>/deliver-collect-car</code> liệt kê xe cần giao hôm nay (type=1). Sau khi giao, sinh <b>2 phiếu thu</b> hiện ở tab tài chính (F13).</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    AD->>X: search/delivery-receive (xe can giao)
+    X-->>AD: Danh sach giao hom nay
+    AD->>X: perform-delivery (km, anh, thu coc + tien thue)
+    X-->>AD: ONGOING + PT DEPOSIT_COLLECT, RENTAL_PAYMENT
+    </pre></div>
+  </section>
+
+  <!-- F07 -->
+  <section class="flow" id="f07">
+    <div class="flow-head"><span class="fnum">F07</span><h3>Admin nhận xe + quyết toán + phụ thu<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> booking (receive) + finance + surcharge (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Trả xe tại bến (không thao tác hệ thống).</li>
+      <li><b>Đường đi:</b> Admin mở <b>dialog Nhận xe</b> → ghi km kết thúc, ảnh/video, <b>thêm phụ thu</b> (<code>add-surcharge</code> / <code>suggested-surcharges</code>), chọn giữ cọc hay không → <code>perform-receive</code>. <code>isHoldDeposit=false</code> → <b>COMPLETED (4)</b>, hoàn cọc ngay. <code>=true</code> → <b>REFUND_PENDING (6)</b>. Bảng: <code>new_bookings</code>, <code>transactions</code> (SURCHARGE_COLLECT), <code>booking_logs</code>.</li>
+      <li><b>Socket:</b> <span class="socket-warn">⚠️ (suy đoán)</span></li>
+      <li><b>Admin:</b> Màn <code>/deliver-collect-car</code> (type=2). Nếu giữ cọc → xử lý tiếp ở F09. Có thể <b>đóng hợp đồng & quyết toán</b> (<code>bookings/finish</code>).</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    AD->>X: perform-receive (km, anh, phu thu, giu coc?)
+    alt Khong giu coc
+        X-->>AD: COMPLETED + hoan coc ngay
+    else Giu coc
+        X-->>AD: REFUND_PENDING + PT SURCHARGE_COLLECT
+    end
+    </pre></div>
+  </section>
+
+  <!-- F08 -->
+  <section class="flow" id="f08">
+    <div class="flow-head"><span class="fnum">F08</span><h3>Gia hạn / đổi xe giữa chừng<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> booking (extend, change-car) (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <div class="callout info" style="margin:8px 0">Đây là đổi xe <b>tự nguyện</b> trên đơn đang chạy (ONGOING). Đổi xe do <b>sự cố/tai nạn</b> (qua trạng thái INCIDENT) là luồng riêng — xem <a href="#f24" style="color:#7dd3fc">F24</a>.</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Gọi hotline / yêu cầu gia hạn hoặc đổi xe (không tự thao tác).</li>
+      <li><b>Đường đi:</b> <b>Gia hạn:</b> <code>bookings/extend</code> — kéo dài thời gian, tính lại giá. <b>Đổi xe:</b> <code>change-car</code> (văn phòng) → <code>change-car/deliver</code> (hiện trường). Giữ nguyên ONGOING (3). Bảng: <code>new_bookings</code>, <code>booking_logs</code> (CHANGE_CAR).</li>
+      <li><b>Socket:</b> Không bắt buộc.</li>
+      <li><b>Admin:</b> Sửa trong <code>/contract/contract-day</code> hoặc từ lịch xe <code>/schedule</code>. Audit log ghi xe cũ → xe mới (<code>booking-logs/get</code>).</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    AD->>X: extend (keo dai thoi gian)
+    X-->>AD: Cap nhat gia + thoi gian
+    AD->>X: change-car (van phong) -> change-car/deliver
+    X-->>AD: Doi xe, ghi audit CHANGE_CAR
+    </pre></div>
+  </section>
+
+  <!-- F09 -->
+  <section class="flow" id="f09">
+    <div class="flow-head"><span class="fnum">F09</span><h3>Hủy đơn + hoàn cọc<span class="tag both">khách+admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> booking (cancel, confirm-refund) + finance (xanh-service)</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Nếu trạng thái cho phép, khách <b>tự hủy</b> trên app (<code>bookings/cancel</code>). Lưu <b>tài khoản ngân hàng</b> để nhận hoàn cọc.</li>
+      <li><b>Đường đi:</b> <b>Hủy:</b> <code>bookings/cancel</code> → CANCELLED (5), bắt buộc <code>cancelReasonId</code>, ghi phí hủy. <b>Hoàn cọc:</b> sau REFUND_PENDING (6), admin <code>confirm-refund</code> → COMPLETED (4), tạo <b>PC DEPOSIT_REFUND</b>. Bảng: <code>new_bookings</code>, <code>transactions</code>, <code>bank_accounts</code>.</li>
+      <li><b>Socket:</b> <span class="socket-warn">⚠️ (suy đoán)</span></li>
+      <li><b>Admin:</b> Màn hợp đồng lọc "hoàn cọc"; bấm <b>Xác nhận hoàn trả tiền cọc</b>. Lấy TK ngân hàng khách qua <code>bank-accounts/detail</code>.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach
+    participant X as xanh-service
+    participant AD as Admin
+    K->>X: bookings/cancel (neu cho phep)
+    X-->>K: CANCELLED (ghi phi huy)
+    Note over AD,X: Giu coc -> REFUND_PENDING
+    AD->>X: confirm-refund (so tien + ghi chu)
+    X-->>AD: COMPLETED + PC DEPOSIT_REFUND
+    </pre></div>
+  </section>
+
+  <!-- F10 -->
+  <section class="flow" id="f10">
+    <div class="flow-head"><span class="fnum">F10</span><h3>In hợp đồng (Google Docs / PDF)<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> booking (print) + oauth (xanh-service) · <b>Bề mặt:</b> web admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Ký hợp đồng giấy tại bến (không thao tác hệ thống).</li>
+      <li><b>Đường đi:</b> Admin bấm in → <code>print-data</code> → <code>print-google-doc</code> (copy template Google Docs, fill placeholder) hoặc <code>print-contract-pdf</code>. Kết nối Google: <code>google/connect</code> → <code>callback</code> → <code>status</code>. Bảng: <code>contract_templates</code>, <code>google_oauth_tokens</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Màn hợp đồng có nút <b>In</b>. Quản lý <b>mẫu hợp đồng</b> ở cấu hình (F14). Lần đầu phải <b>kết nối Google</b> ở Setting.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    participant GG as Google Docs
+    AD->>X: google/connect (lan dau)
+    X-->>AD: consent -> callback -> status OK
+    AD->>X: print-data + print-google-doc / pdf
+    X->>GG: Copy template, fill placeholder
+    X-->>AD: File HD (Google Doc / PDF)
+    </pre></div>
+  </section>
+
+  <!-- F11 -->
+  <section class="flow" id="f11">
+    <div class="flow-head"><span class="fnum">F11</span><h3>Admin quản lý xe + pháp lý + bảo dưỡng<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> vehicle + maintenance (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <div class="callout info" style="margin:8px 0"><b>Phiếu bảo dưỡng TỰ ĐỘNG đổi trạng thái xe:</b> phiếu <b>PENDING</b> → xe sang <b>MAINTENANCE (2)</b> → biến mất khỏi tìm xe rảnh; phiếu <b>COMPLETED</b> → xe về <b>ACTIVE (1)</b>. Chặn đặt xe dựa vào <b>trạng thái xe</b>, không theo ngày phiếu. Chi tiết + nhánh tai nạn→xưởng: xem <a href="luong-bao-duong-chi-tiet.html" style="color:#7dd3fc">luong-bao-duong-chi-tiet.html</a>.</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Gián tiếp — xe admin tạo/sửa sẽ hiện khi khách tìm (F03).</li>
+      <li><b>Đường đi:</b> <code>cars/create|update|update-legal-maintenance|search|detail|delete</code>, <code>cars/license-plates</code>; bảo dưỡng <code>maintenance/create|search</code>. Bảng: <code>new_cars</code>, <code>maintenance_tickets</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> <code>/list/car</code> + <code>/management/car</code>: tạo/sửa/xóa xe. <code>/management/maintenance</code>: lịch bảo dưỡng, loại + đối tác từ <code>maintenance/configs</code>. <code>/schedule</code>: lịch Gantt.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    AD->>X: cars/create | update | update-legal-maintenance
+    X-->>AD: Cap nhat xe + phap ly + bao duong
+    AD->>X: maintenance/create (phieu bao duong)
+    X-->>AD: Lich bao duong cap nhat
+    </pre></div>
+  </section>
+
+  <!-- F12 -->
+  <section class="flow" id="f12">
+    <div class="flow-head"><span class="fnum">F12</span><h3>Admin quản lý khách hàng + tài khoản ngân hàng<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> customer (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Gián tiếp — hồ sơ/KYC khách do admin xem và sửa.</li>
+      <li><b>Đường đi:</b> <code>customers/search|create|update|detail|delete</code>, <code>identity/update</code>, <code>license/update</code>, <code>bank-accounts/detail</code>. Bảng: <code>customers</code>, <code>user_identities</code>, <code>user_licenses</code>, <code>bank_accounts</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Màn <code>/list/customer</code> — lọc rank/KYC, tạo/sửa/xóa, xem KYC, xem TK ngân hàng (để hoàn cọc). Liên thông F02 + F09.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    AD->>X: customers/search (loc rank/KYC)
+    X-->>AD: Danh sach khach
+    AD->>X: customers/detail + bank-accounts/detail
+    X-->>AD: Ho so + KYC + TK ngan hang
+    </pre></div>
+  </section>
+
+  <!-- F13 -->
+  <section class="flow" id="f13">
+    <div class="flow-head"><span class="fnum">F13</span><h3>Admin quản lý tài chính (thu/chi) + báo cáo<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> finance + report (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Không trực tiếp — giao dịch sinh ra từ giao/nhận xe/hoàn cọc (F06–F09).</li>
+      <li><b>Đường đi:</b> <code>transactions/create|search|void|export-excel</code>, <code>configs/transaction-categories</code>; báo cáo <code>reports/revenue|expenses|customer-revenue|rental-profit|fill-rate</code>. Bảng: <code>transactions</code>, <code>transaction_categories</code>.</li>
+      <li><b>Socket:</b> <span class="socket-warn">⚠️ (suy đoán)</span></li>
+      <li><b>Admin:</b> <code>/finance/transactions</code>: phiếu thu/chi, lọc, tạo, hủy, xuất Excel. <code>/finance/debt</code>: công nợ (chưa đầy đủ). <code>/report/*</code>: doanh thu, chi phí, lợi nhuận, tỷ lệ dùng xe.</li>
+      <li><b>Cách tính fill-rate</b> (GROSS/NET, chia ngày khi đổi xe, bảo dưỡng ghi đè): xem <code>02-technical/cach-tinh-ty-le-lap-day.md</code>.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    AD->>X: transactions/search | create | void
+    X-->>AD: Danh sach phieu thu/chi
+    AD->>X: reports/revenue | rental-profit | fill-rate
+    X-->>AD: So lieu bao cao + bieu do
+    </pre></div>
+  </section>
+
+  <!-- F14 -->
+  <section class="flow" id="f14">
+    <div class="flow-head"><span class="fnum">F14</span><h3>Admin cấu hình hệ thống (phụ phí, mẫu HĐ, phí vùng, ngân hàng)<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> system-config (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Gián tiếp — phụ phí/phí vùng/phương thức thanh toán ảnh hưởng giá khách.</li>
+      <li><b>Đường đi:</b> <code>configs/surcharges</code>, <code>configs/bank-accounts</code>, <code>payment-methods</code>, <code>contract-templates/*</code>, <code>configs/cross-region-fees/*</code>. Bảng: <code>surcharge_catalogs</code>, <code>bank_accounts</code>, <code>contract_templates</code>, <code>cross_region_fee_configs</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Màn <code>/setting</code> — dịch vụ, loại phiếu, nguồn khách, hãng xe, mẫu in, <b>phí chuyển vùng</b>, kết nối Google. Phụ phí ở <code>/finance</code>. Ngân hàng ở <code>/management/bank</code> + <code>/list/bank</code>.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    AD->>X: configs/surcharges | bank-accounts | cross-region-fees
+    AD->>X: contract-templates/create | update
+    X-->>AD: Cau hinh ap dung toan he thong
+    </pre></div>
+  </section>
+
+  <!-- F15 -->
+  <section class="flow" id="f15">
+    <div class="flow-head"><span class="fnum">F15</span><h3>Admin quản lý nhân viên + phân quyền<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> user/role/company/password (internal-auth-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Không liên quan (khách dùng customer-auth riêng).</li>
+      <li><b>Đường đi:</b> Admin login qua <b>internal-auth</b> (<code>auth/admin/login</code>...). Quản lý NV: <code>create-user</code>, <code>profile/update</code>, <code>deactivate|reactivate</code>. Role: <code>grant-role</code>, <code>set-role</code>, <code>batch-roles</code>. Công ty: <code>assign-company</code>. Gateway → internal-auth (8084), code <code>"200"</code>. Bảng: <code>users</code>, <code>roles</code>, <code>user_roles</code>, <code>companies</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Màn <code>/management/staff</code> — tạo NV, sửa, đổi mật khẩu, vô hiệu/kích hoạt, gán <b>vai trò</b> (ROLE_ADMIN, ROLE_XANH, ROLE_STAFF). <code>/account</code> là hồ sơ cá nhân NV.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant G as Gateway
+    participant IA as internal-auth
+    AD->>G: auth/admin/login
+    G->>IA: login
+    IA-->>AD: JWT
+    AD->>IA: create-user / set-role / assign-company / deactivate
+    IA-->>AD: Cap nhat NV + quyen
+    </pre></div>
+  </section>
+
+  <!-- F16 -->
+  <section class="flow" id="f16">
+    <div class="flow-head"><span class="fnum">F16</span><h3>Admin quản lý địa điểm (thành phố + bến xe)<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> location (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Xem danh sách thành phố + tìm bến khi đặt xe (F03).</li>
+      <li><b>Đường đi:</b> <code>cities/create|update|delete|search|detail|export-excel</code>, <code>stations/create|update|search</code>. Public: <code>GET /xanh/cities</code>, <code>stations/search</code>. Bảng: <code>cities</code>, <code>new_station_locations</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> <code>/management/city</code> + <code>/management/location</code> (bến xe, lọc theo thành phố/trạng thái). Bến/thành phố admin tạo hiện cho khách chọn khi đặt.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    AD->>X: cities create/update, stations create/update
+    X-->>AD: Cap nhat dia diem
+    Note over X: Public: khach lay cities + stations khi dat xe
+    </pre></div>
+  </section>
+
+  <!-- F17 -->
+  <section class="flow" id="f17">
+    <div class="flow-head"><span class="fnum">F17</span><h3>CMS: bài viết, nội dung trang, cấu hình site<span class="tag both">khách+admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> post + page-content + site-setting (xanh-service)</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Đọc <b>tin tức/blog</b> (<code>posts/get-all</code>, <code>hot-news</code>, <code>detail</code>), xem <b>nội dung trang</b> (banner, giới thiệu qua <code>page-contents/list</code>) và <b>cấu hình site</b> (logo, SĐT qua <code>site-settings/list</code>).</li>
+      <li><b>Đường đi:</b> Public read (có cache). Admin: <code>posts/create|update|delete</code>, <code>page-contents/update</code>, <code>site-settings/update</code>. Bảng: <code>posts</code>, <code>page_contents</code>, <code>site_settings</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Web admin có domain CMS; customer-web cũng có <b>khu admin riêng</b> (<code>/admin/posts</code>, <code>/admin/settings</code>). Flutter admin có màn <b>Tin tức</b> + <b>Banner</b>.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    participant K as Khach
+    AD->>X: posts/create | page-contents/update | site-settings/update
+    X-->>AD: Luu noi dung
+    K->>X: posts/get-all | page-contents/list (cached)
+    X-->>K: Bai viet + noi dung trang
+    </pre></div>
+  </section>
+
+  <!-- F18 -->
+  <section class="flow" id="f18">
+    <div class="flow-head"><span class="fnum">F18</span><h3>Phạt nguội + thông báo admin<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> traffic-violation + notification (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Không trực tiếp (liên quan xe khách đang thuê).</li>
+      <li><b>Đường đi:</b> <code>traffic-violations/search</code>; thông báo admin: <code>notifications/birthdays</code>, <code>maintenance-due</code>, <code>traffic-violations</code>. Bảng: <code>traffic_violations</code>.</li>
+      <li><b>Socket:</b> <span class="socket-warn">⚠️ (suy đoán — thực tế thông báo qua Telegram, xem cảnh báo đầu trang)</span></li>
+      <li><b>Admin:</b> Màn <code>/management/traffic-violation</code> tra cứu phạt nguội theo biển số/thời gian. Thông báo sinh nhật/bảo dưỡng hiện trên chuông/dashboard.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant X as xanh-service
+    participant AD as Admin
+    AD->>X: notifications/birthdays | maintenance-due | traffic-violations
+    X-->>AD: Danh sach thong bao
+    AD->>X: traffic-violations/search (tra cuu chi tiet)
+    X-->>AD: Danh sach phat nguoi
+    </pre></div>
+  </section>
+
+  <!-- F19 -->
+  <section class="flow" id="f19">
+    <div class="flow-head"><span class="fnum">F19</span><h3>Dashboard + thống kê<span class="tag both">khách+admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> dashboard + report (xanh-service)</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Xem <b>dashboard khách</b> (<code>GET /xanh/dashboard</code>, <code>statistics</code>): chuyến sắp tới, số lần đặt, quảng cáo, khuyến mãi.</li>
+      <li><b>Đường đi:</b> Khách → gateway → xanh-service. Admin dashboard tổng hợp từ <code>bookings/status-counts</code>, <code>delivery/search</code>, <code>kyc/pending</code>.</li>
+      <li><b>Socket:</b> <span class="socket-warn">⚠️ (suy đoán)</span></li>
+      <li><b>Admin:</b> Màn <code>/</code> (dashboard admin): KPI hôm nay (giao/nhận, KYC chờ, đang thuê), việc cần làm. Flutter admin có <b>Trang chủ</b> + <b>Báo cáo</b>.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach
+    participant X as xanh-service
+    participant AD as Admin
+    K->>X: dashboard + statistics
+    X-->>K: Tong quan ca nhan khach
+    AD->>X: status-counts + delivery/search + kyc/pending
+    X-->>AD: KPI hom nay + viec can lam
+    </pre></div>
+  </section>
+
+  <!-- F20 -->
+  <section class="flow" id="f20">
+    <div class="flow-head"><span class="fnum">F20</span><h3>Khách quản lý hồ sơ + xem lịch sử + nội dung công khai<span class="tag kh">khách</span></h3></div>
+    <div class="meta"><b>Domain:</b> profile + booking-history + content (customer-auth + xanh-service)</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Xem/sửa <b>hồ sơ</b> (tên, SĐT, email, địa chỉ, avatar), <b>đổi mật khẩu</b>, <b>xóa tài khoản</b>; xem <b>lịch sử đặt xe</b>; quản lý <b>tài khoản ngân hàng</b>; xem voucher, tin tức, giới thiệu, chính sách.</li>
+      <li><b>Đường đi:</b> Hồ sơ <code>customers/profile</code> + <code>auth/customers/profile</code>; lịch sử <code>bookings/my-history</code>; TK ngân hàng <code>customer/bank-accounts</code>; đổi MK/xóa TK qua customer-auth. Gateway → customer-auth + xanh-service.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Gián tiếp — hồ sơ/lịch sử khách hiện ở F12; TK ngân hàng dùng khi hoàn cọc (F09).</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach
+    participant G as Gateway
+    participant X as xanh-service
+    participant A as customer-auth
+    K->>G: profile, bank-accounts, my-history
+    G->>X: customers/profile + bookings/my-history
+    G->>A: change-password / delete-account
+    X-->>K: Ho so + lich su + voucher
+    </pre></div>
+  </section>
+
+  <!-- F21 -->
+  <section class="flow" id="f21">
+    <div class="flow-head"><span class="fnum">F21</span><h3>Di trú dữ liệu ảnh bài viết legacy → S3<span class="tag ad">admin</span></h3></div>
+    <div class="meta"><b>Domain:</b> migration (xanh-service) · <b>Bề mặt:</b> web admin (công cụ nội bộ)</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Không.</li>
+      <li><b>Đường đi:</b> Admin bấm chạy <code>POST /xanh/admin/migration/posts</code> → tải ảnh từ server legacy → upload S3 → cập nhật URL. Bảng: <code>posts</code> (cập nhật URL ảnh), <code>post_url_history</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Công cụ một lần, chạy khi cần chuyển ảnh cũ sang S3; kết quả phản ánh ở CMS bài viết (F17).</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant AD as Admin
+    participant X as xanh-service
+    participant S3 as S3
+    AD->>X: migration/posts (bam chay)
+    X->>S3: Tai anh legacy -> upload S3
+    X-->>AD: Cap nhat URL anh bai viet
+    </pre></div>
+  </section>
+
+  <!-- F22 -->
+  <section class="flow" id="f22">
+    <div class="flow-head"><span class="fnum">F22</span><h3>Admin quản lý dịch vụ cho thuê (rent-services)<span class="tag both">khách+admin</span> <b class="new">(mới — vá sót)</b></h3></div>
+    <div class="meta"><b>Domain:</b> rent-service (xanh-service) · <b>Bề mặt:</b> web admin (<code>/management/service</code>) + Flutter admin</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Xem danh sách <b>dịch vụ đi kèm</b> khi đặt xe qua <code>GET /xanh/services</code> (tài xế riêng, giao xe tận nơi, ghế trẻ em...); các dịch vụ này <b>ảnh hưởng giá</b> ở bước tính giá (F04).</li>
+      <li><b>Đường đi:</b> Admin quản lý qua <code>/management/service</code> → BFF <code>/api/management/service/get-all</code> → xanh-service; Flutter admin đọc <code>configs/rent-services</code>. Khách đọc <code>GET /xanh/services</code>. Bảng: <code>new_rent_services</code>.</li>
+      <li><b>Socket:</b> Không.</li>
+      <li><b>Admin:</b> Tạo/sửa/bật-tắt dịch vụ cho thuê, đặt giá/phí → dịch vụ hiện cho khách chọn khi đặt và cộng vào tổng giá.</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach
+    participant AD as Admin
+    participant G as Gateway
+    participant X as xanh-service
+    AD->>G: /api/management/service/get-all (quan ly)
+    G->>X: rent-services (CRUD)
+    K->>G: GET /xanh/services (khi dat xe)
+    G->>X: Lay ds dich vu + phi
+    X-->>K: Dich vu di kem -> cong vao tinh gia (F04)
+    </pre></div>
+  </section>
+
+  <!-- F23 -->
+  <section class="flow" id="f23">
+    <div class="flow-head"><span class="fnum">F23</span><h3>Duyệt phiếu bảo trì (yêu cầu → duyệt, 2 bước)<span class="tag ad">admin</span> <b class="new">(mới — vá sót)</b></h3></div>
+    <div class="meta"><b>Domain:</b> maintain (xanh-service) · <b>Bề mặt:</b> web admin (<code>/maintain/maintainance-request</code> + <code>/maintain/maintainance-approve</code>)</div>
+    <div class="callout info" style="margin:8px 0">Phân biệt với <b>F11</b> (tạo phiếu <b>bảo dưỡng</b> từ <code>/management/maintenance</code>). Nhóm màn <code>/maintain/*</code> là quy trình <b>2 bước có duyệt</b> (đề nghị → phê duyệt), tách riêng. Cả hai còn có thể <b>chưa triển khai đầy đủ</b> — cần xác nhận địa chỉ BFF thật.<br><b>Lưu ý:</b> thứ tự động đổi trạng thái xe nằm ở phiếu bảo dưỡng <b>F11</b>, không phải luồng duyệt 2 bước này. Chi tiết: <a href="luong-bao-duong-chi-tiet.html" style="color:#7dd3fc">luong-bao-duong-chi-tiet.html</a>.</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Không (nội bộ admin/kỹ thuật).</li>
+      <li><b>Đường đi:</b> Nhân viên tạo <b>yêu cầu bảo trì</b> ở <code>/maintain/maintainance-request</code> → cấp quản lý <b>duyệt</b> ở <code>/maintain/maintainance-approve</code> → xanh-service ghi nhận. Bảng: <code>maintenance_tickets</code> / <code>maintenance_categories</code>.</li>
+      <li><b>Socket:</b> <span class="socket-warn">⚠️ (dự kiến, chưa xác nhận)</span></li>
+      <li><b>Admin:</b> Bước 1 — tạo đề nghị (xe nào, hạng mục, chi phí dự kiến). Bước 2 — quản lý xem và duyệt/từ chối. Sau khi duyệt, xe có thể chuyển trạng thái bảo trì (liên quan F11 + lịch xe F03).</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant NV as Nhan vien
+    participant QL as Quan ly
+    participant X as xanh-service
+    NV->>X: Tao yeu cau bao tri (/maintain/maintainance-request)
+    X-->>QL: Phieu cho duyet
+    QL->>X: Duyet / tu choi (/maintain/maintainance-approve)
+    X-->>X: Cap nhat trang thai xe (lien quan F11)
+    </pre></div>
+  </section>
+
+  <!-- F24 -->
+  <section class="flow" id="f24">
+    <div class="flow-head"><span class="fnum">F24</span><h3>Đổi xe do sự cố (lỗi kỹ thuật / tai nạn)<span class="tag both">khách+admin</span> <b class="new">(mới)</b></h3></div>
+    <div class="meta"><b>Domain:</b> booking (incident + change-car) (xanh-service) · <b>Bề mặt:</b> web admin + Flutter admin</div>
+    <div class="callout info" style="margin:8px 0">Phân biệt với <a href="#f08" style="color:#7dd3fc">F08</a> (đổi xe tự nguyện trên ONGOING). Luồng này dành cho xe <b>gặp sự cố</b> giữa chừng: đi qua trạng thái <b>INCIDENT (7)</b> rồi mới đổi xe. Đã có và khá đầy đủ trong code (state machine 9 trạng thái).</div>
+    <ol>
+      <li><b>Khách làm gì:</b> Xe đang thuê gặp <b>lỗi kỹ thuật</b> hoặc <b>tai nạn</b> → khách báo hotline / nhân viên hiện trường (không tự thao tác hệ thống).</li>
+      <li><b>Đường đi (3 bước):</b>
+        <ul style="margin:4px 0">
+          <li><b>B1 — Báo sự cố:</b> <code>update-status</code> ONGOING (3) → <b>INCIDENT (7)</b>, <b>bắt buộc</b> kèm <code>incidentType</code> = <code>TECHNICAL_FAULT</code> (lỗi kỹ thuật) hoặc <code>ACCIDENT</code> (tai nạn). Sai/thiếu type → reject.</li>
+          <li><b>B2 — Đổi xe (văn phòng):</b> <code>change-car</code> INCIDENT (7) → <b>CHANGING_CAR (9)</b>, chốt xe mới + <b>tiền chênh lệch</b>. Log <code>CHANGE_CAR_OFFICE</code>. (Chỉ đổi xe được khi đang INCIDENT.)</li>
+          <li><b>B3 — Giao xe mới (hiện trường):</b> <code>change-car/deliver</code> → giao xe thay thế, quay lại <b>ONGOING (3)</b>. Log <code>CHANGE_CAR_DELIVERY</code>.</li>
+        </ul>
+        Bảng: <code>new_bookings</code> (status + <code>incidentType</code>), <code>booking_logs</code>, <code>booking_car_history</code>.
+      </li>
+      <li><b>Socket/Thông báo:</b> <span class="socket-warn">khi báo sự cố, code publish <code>NotifyEvent.IncidentRaised</code> (Telegram) — nhưng hiện chỉ <code>BookingCreated</code> đang bật nên sự cố <b>chưa gửi thông báo thật</b>.</span></li>
+      <li><b>Admin xử lý:</b> Báo cáo có bộ lọc trạng thái sự cố (7/8). Ngoài đổi xe, từ INCIDENT còn có thể: <b>báo nhầm</b> → ONGOING (3); <b>kết thúc HĐ sớm</b> → REFUND_PENDING (6) (<code>perform-receive</code> chấp nhận cả INCIDENT); <b>tịch thu xe</b> → SEIZED (8).</li>
+    </ol>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant K as Khach
+    participant NV as NV hien truong
+    participant AD as Admin
+    participant X as xanh-service
+    K->>NV: Bao xe loi ky thuat / tai nan
+    NV->>X: update-status sang INCIDENT (TECHNICAL_FAULT / ACCIDENT)
+    AD->>X: change-car (chot xe moi + tien chenh)
+    X-->>AD: CHANGING_CAR (log CHANGE_CAR_OFFICE)
+    AD->>X: change-car/deliver (giao xe moi)
+    X-->>K: Xe thay the, ve ONGOING
+    </pre></div>
+  </section>
+
+  <h2>Ghi chú kiểm chứng (BẮT BUỘC đọc trước khi tin tuyệt đối)</h2>
+  <div class="callout warn">
+    <b>Socket "bắn gì" — ĐÃ XÁC MINH 2026-06-09:</b> các dòng socket ở trên <b>KHÔNG đúng</b>. <code>xanh-service</code> không publish Redis. Thông báo đơn mới đi qua <b>Telegram</b>, chỉ <code>BookingCreated</code> đang bật. <code>amz-socket</code> nghe Redis + đẩy WebSocket nhưng <b>chưa tìm thấy bên publish</b> → realtime panel admin có thể chưa chạy.
+  </div>
+  <div class="callout info">
+    <b>user_identities / user_licenses:</b> cột tên <code>user_id</code> nhưng <b>trỏ <code>customers(id)</code></b> (CCCD/GPLX khách), KHÔNG phải bảng <code>users</code>.<br>
+    <b>2 luồng auth song song:</b> khách qua customer-auth (8081, code "200"), nhân viên qua internal-auth (8084, code "200"); nghiệp vụ qua xanh-service (8080, code "00").<br>
+    <b>Trạng thái booking chi tiết:</b> xem <code>state-machine.md</code> + <code>user-journeys.md</code> cho các cảnh ngoại lệ (revert, sự cố, tịch thu).
+  </div>
+  <div class="callout ok">
+    <b>Độ phủ (coverage):</b> lần đầu tài liệu chỉ có F01–F21, agent thanh tra báo FLAG vì sót. Đã bổ sung <b>F22</b> (dịch vụ cho thuê) và <b>F23</b> (duyệt bảo trì 2 bước). Màn <b>"Tài xế"</b> (Flutter admin) lead xác nhận <b>CHƯA CÓ nghiệp vụ</b> → không tính. Sau khi vá, mọi domain backend + nhóm màn admin đang có thật đều nằm trong ít nhất 1 luồng.
+  </div>
+
+  <h2>Bảng tra tên bảng DB thật (đã xác minh từ <code>@Table</code>)</h2>
+  <p class="note">Dùng tên ở cột phải khi viết SQL. Chú ý nhiều bảng có tiền tố <code>new_</code>. Không có bảng <code>drivers</code> → xác nhận nghiệp vụ tài xế chưa có.</p>
+  <table>
+    <thead><tr><th>Nghiệp vụ</th><th>Entity (.java)</th><th>Tên bảng THẬT</th></tr></thead>
+    <tbody>
+      <tr><td>Đơn đặt xe</td><td>Booking</td><td><code>new_bookings</code></td></tr>
+      <tr><td>Xe</td><td>Car</td><td><code>new_cars</code></td></tr>
+      <tr><td>Thông số xe</td><td>CarSpecification</td><td><code>new_car_specifications</code></td></tr>
+      <tr><td>Ảnh xe</td><td>CarImage</td><td><code>new_car_images</code></td></tr>
+      <tr><td>Bến/điểm</td><td>StationLocation</td><td><code>new_station_locations</code></td></tr>
+      <tr><td>Thành phố</td><td>City</td><td><code>cities</code></td></tr>
+      <tr><td>Nguồn đơn</td><td>BookingSource</td><td><code>new_booking_sources</code></td></tr>
+      <tr><td>Cấu hình giá</td><td>PriceConfiguration</td><td><code>new_price_configurations</code></td></tr>
+      <tr><td>Dịch vụ thuê (F22)</td><td>RentService</td><td><code>new_rent_services</code></td></tr>
+      <tr><td>Khách hàng</td><td>Customer</td><td><code>customers</code></td></tr>
+      <tr><td>CCCD khách</td><td>UserIdentity</td><td><code>user_identities</code> <span class="note">(trỏ customers)</span></td></tr>
+      <tr><td>GPLX khách</td><td>UserLicense</td><td><code>user_licenses</code> <span class="note">(trỏ customers)</span></td></tr>
+      <tr><td>TK ngân hàng</td><td>BankAccount</td><td><code>bank_accounts</code></td></tr>
+      <tr><td>Khuyến mãi</td><td>Promotion / PromotionUsage</td><td><code>promotions</code> / <code>promotion_usages</code></td></tr>
+      <tr><td>Phụ thu đơn</td><td>BookingSurcharge</td><td><code>booking_surcharges</code></td></tr>
+      <tr><td>Danh mục phụ thu</td><td>SurchargeCatalog</td><td><code>surcharge_catalogs</code></td></tr>
+      <tr><td>Thu/chi</td><td>Transaction / Category</td><td><code>transactions</code> / <code>transaction_categories</code></td></tr>
+      <tr><td>Phí liên vùng</td><td>CrossRegionFeeConfig</td><td><code>cross_region_fee_configs</code></td></tr>
+      <tr><td>Mẫu hợp đồng</td><td>ContractTemplate / Type</td><td><code>contract_templates</code> / <code>contract_template_types</code></td></tr>
+      <tr><td>Phiếu bảo trì (F11/F23)</td><td>MaintenanceTicket / Category</td><td><code>maintenance_tickets</code> / <code>maintenance_categories</code></td></tr>
+      <tr><td>Đối tác</td><td>Partner</td><td><code>partners</code></td></tr>
+      <tr><td>Bài viết (CMS)</td><td>Post / PostUrlHistory</td><td><code>posts</code> / <code>post_url_history</code></td></tr>
+      <tr><td>Nội dung trang</td><td>PageContent</td><td><code>page_contents</code></td></tr>
+      <tr><td>Cấu hình site</td><td>SiteSetting</td><td><code>site_settings</code></td></tr>
+      <tr><td>Phạt nguội</td><td>TrafficViolation</td><td><code>traffic_violations</code></td></tr>
+      <tr><td>Lý do hủy</td><td>CancelReason</td><td><code>cancel_reasons</code></td></tr>
+      <tr><td>Log đơn</td><td>BookingLog</td><td><code>booking_logs</code></td></tr>
+      <tr><td>Lịch sử xe-đơn</td><td>BookingCarHistory</td><td><code>booking_car_history</code></td></tr>
+      <tr><td>Token Google (in HĐ)</td><td>GoogleOAuthToken</td><td><code>google_oauth_tokens</code></td></tr>
+      <tr><td>Hồ sơ nhân viên</td><td>StaffProfile</td><td><code>staff_profiles</code></td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    Tài liệu trực quan sinh từ <code>docs/01-business/luong-nghiep-vu-tong-hop.md</code>.
+    Kiến trúc tổng thể: <code>docs/00-overview/kien-truc-tong-the.html</code>.
+    Vòng đời booking chi tiết: <code>user-journeys.md</code> + <code>state-machine.md</code>.
+    <br>Cần internet để vẽ sơ đồ (thư viện Mermaid tải từ CDN).
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad:true, theme:'dark', securityLevel:'loose',
+    sequence:{ useMaxWidth:true, wrap:true }, flowchart:{ curve:'basis' } });
+</script>
+</body>
+</html>

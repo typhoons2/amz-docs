@@ -1,0 +1,51 @@
+# Review M4 — Contract / Booking / Promotion (app admin Flutter)
+
+- Commit: 3e6d332 (ban code SAU FIX, 07/06/2026)
+- Pham vi: `lib/features/contracts`, `lib/features/bookings`, `lib/features/promotion`
+- So file .dart da doc: **15**
+  - contracts: contracts_screen.dart, contract_detail_screen.dart, services/contract_service.dart
+  - bookings: bookings_screen.dart, services/booking_admin_service.dart, services/booking_service.dart
+  - promotion: screens/promotion_create_screen.dart, screens/promotion_update_screen.dart, screens/promotion_management_screen.dart, services/promotion_management_service.dart, models/promotion.dart, widgets/promotion_detail_widget.dart, widgets/promotion_widget.dart, enums/promotion_category.dart, enums/promotion_status.dart
+
+## Tong quan
+Ban code sau fix da TOT len ro: dung `SecureHttpClient` (co cert pinning), khong con hardcode secret/URL, token doc tu `StorageService` chu khong log ra, hau het service co guard token rong + `try/catch` + `SocketException`. Cac loi cu (mat khau plaintext, log credential, cleartext) KHONG con thay trong 3 module nay. Van de con lai chu yeu la **on dinh** (bug logic, null-safety, error handling) va vai diem auth/validation muc thap.
+
+## Bang ket qua
+
+| File:dong | Loai | Muc do | Van de | Cach sua |
+|-----------|------|--------|--------|----------|
+| promotion/screens/promotion_update_screen.dart:262 | error-handling | HIGH | Truong "Gioi han/khach" (usageLimitPerUser) gan nham `_usageLimitController` thay vi `_usageLimitPerUserController`. Khi update, gia tri per-user lay tu controller cua "Gioi han tong"; `_validate` (dong 359) doc `_usageLimitPerUserController` von rong -> luon null -> form bao "thieu thong tin bat buoc" du user da nhap. Tinh nang update gioi han/khach hong. | Doi controller dong 262 thanh `_usageLimitPerUserController`. |
+| bookings/services/booking_service.dart:22-64 | auth-authz / null-safety-crash | HIGH | Khong guard token null/rong (khac voi tat ca service con lai). Neu `getAccessToken()` tra null se gui header `Authorization: 'Bearer null'` (string "null") -> goi API khi chua dang nhap, server tra 401, client hien loi mo ho thay vi "het phien". | Them guard dau ham: `if (token==null||token.isEmpty) return {'success':false,'message':'Phien dang nhap het han...'};` giong `BookingAdminService._post`. |
+| contracts/screens/contract_detail_screen.dart:64-72 | async-race | HIGH | Trong `_loadDetail`, nhanh `else` (khi `success!=true`) goi `ScaffoldMessenger.of(context)` ma KHONG check `mounted` (chi check 1 lan o dong 54, truoc cac await trong nhanh success). `setState(()=>_isLoading=false)` dong 72 cung khong check mounted. Neu user thoat man hinh giua chung -> crash. | Bao `if (mounted)` quanh `ScaffoldMessenger` nhanh else va truoc `setState` dong 72. |
+| contracts/screens/contract_detail_screen.dart:610-616 | error-handling | HIGH | Dialog "Chinh sua trang thai" chi `setState` cap nhat `_detail['status']`/`note` tren UI, KHONG goi API. SnackBar bao "Da cap nhat trang thai tren giao dien" -> nhan vien tuong da luu len he thong nhung server chua doi -> trang thai don sai lech. | Noi API doi trang thai booking, chi cap nhat UI khi `responseCode` thanh cong; neu chua co API thi disable nut / ghi ro "chua luu len he thong". |
+| contracts/screens/contract_detail_screen.dart:421-432 | input-validation | MEDIUM | Payload `_confirmFinish` lay thang `d['discountValue']`, `d['vatPercent']`, `d['paymentMethodId']`, `d['remainingAmount']` tu JSON khong ep kieu; `paymentAmount` ternary tra `d['remainingAmount']` (dynamic) hoac `0` -> kieu khong nhat quan, gui sai neu server tra String/null. | Ep kieu qua `_asNum(...) ?? 0` truoc khi dua vao payload; `paymentAmount` luon la `num`. |
+| contracts/screens/contract_detail_screen.dart:57 | null-safety-crash | MEDIUM | `_detail = result['data']?['result']?['data'] as Map<String,dynamic>?` — chain `?[]` tren `Object?` chi an toan neu `data`/`result` la Map; neu server tra List/kieu khac, `[]` tren dynamic co the nem runtime. | Dung helper `_asMap(...)` thay cho cast truc tiep. |
+| contracts/screens/contract_detail_screen.dart:989,1194 | error-handling | MEDIUM | Form "Them moi chi phi" / "Them phu thu" chi hien SnackBar "se noi API o buoc tiep theo", khong tao that. User nhap lieu xong bam "Them moi" tuong da luu. | Noi API tao phieu thu/chi, hoac disable nut cho den khi co API. |
+| contracts/screens/contract_detail_screen.dart:378-384 | error-handling | MEDIUM | Nut "Xoa" giao dich (`OutlinedButton.icon onPressed: () {}`) khong lam gi. | Noi API xoa giao dich hoac an nut. |
+| contracts/screens/contracts_screen.dart:522-526 | null-safety-crash | MEDIUM | Cast cung `(c['totalAmount'] ?? 0) as num`, `(c['status'] ?? 0) as int`. Neu API tra status/so tien dang String, `as int`/`as num` nem exception lam vo ca bang DataTable. (Module bookings dung `_asInt/_asNum` an toan hon.) | Thay bang `_asNum(c['totalAmount']) ?? 0` va `_asInt(c['status']) ?? 0`. |
+| contracts/screens/contracts_screen.dart:574 + detail:1660 | null-safety-crash | MEDIUM | `(c['status'] ?? 0) as int` lap lai o mobileList, desktop, status chip detail — cung rui ro cast cung khi status la num/String khac int. | Chuan hoa qua `_asInt`. |
+| promotion/services/promotion_management_service.dart:13-58 | auth-authz | MEDIUM | `fetchPromotions` (va create/update/delete) khong guard token null; gui `'Bearer $token'` voi token co the null. Khac voi ContractService/BookingAdminService da guard. | Them guard token rong dau moi ham, tra "het phien" thay vi goi API. |
+| promotion/services/promotion_management_service.dart:169-177 | error-handling | MEDIUM | `deletePromotion` dat `"id": id` o TANG GOC requestBody thay vi trong `data` (cac ham khac deu boc trong `data`). Neu BE doc `data.id` thi xoa khong dung ID -> that bai im lang hoac xoa nham. | Dat `"data": {"id": id}` theo dung contract BE. |
+| promotion/screens/promotion_management_screen.dart:57-63 | resource-leak / async-race | MEDIUM | `_fetchInitialData` add `_scrollController.addListener(...)` MOI moi lan goi (moi lan doi filter/xoa) -> listener chong chat, `_loadMore` bi goi nhieu lan, load trung trang, ton API. Ngoai ra `_searchController`/`_scrollController` KHONG duoc dispose (thieu override `dispose()`). | Add listener 1 lan trong `initState`; them `dispose()` huy ca 2 controller. |
+| promotion/screens/promotion_management_screen.dart:308-310 | async-race | MEDIUM | Trong `_confirmDelete`, sau xoa goi `setState(() { _fetchInitialData(); })` — `_fetchInitialData` la async, goi trong `setState` la anti-pattern; future chay ngoai kiem soat, co the setState sau dispose. | Goi `_fetchInitialData()` ngoai `setState`. |
+| promotion/screens/promotion_create_screen.dart:308-352 + service:108-110,164-166 | error-handling | MEDIUM | `_validate` boc `try/catch` tra `false` khi exception -> nuot loi; service create/update cung `catch(e) return false` (KHONG log) -> user chi thay "that bai" chung chung, khong phan biet loi mang vs loi server vs loi nhap. | Log chi tiet co kiem soat; hien message cu the hon tu API (`parsed['message']`). |
+| promotion/screens/promotion_update_screen.dart:186-188 | error-handling | LOW | `SearchableDropdown.onChanged` gan `_selectedCategory` truc tiep KHONG `setState` -> suffix "%/VNĐ" va field "Giam toi da" (hien theo percentage) khong cap nhat khi doi loai. (Create screen co setState; update thieu.) | Boc `setState(() => _selectedCategory = selectedItem;)`. |
+| promotion/widgets/promotion_detail_widget.dart:49 + promotion_widget.dart:74 | null-safety-crash | LOW | `promotion.status?.color.withValues(...)` — neu `status==null` thi chain ngat o `?.` tra null; `BoxDecoration(color: null)` lam chip mat mau im lang (status enum `from()` tra null khi value khac 0/1). Khong crash nhung hien sai. | Fallback: `(promotion.status?.color ?? Colors.grey).withValues(...)`. |
+| promotion/widgets/promotion_detail_widget.dart:81-82 + promotion_widget.dart:107-108 | error-handling | LOW | "Da dung" tinh `(usedCount ?? 0) * (discountValue ?? 0)` chia `maxDiscountAmount` — cong thuc sai ngu nghia (so lan dung * gia tri giam), hien sai du lieu nghiep vu cho admin. | Xem lai: thuong la `usedCount / usageLimit`. |
+| promotion/models/promotion.dart:35-45 | error-handling | LOW | `addOther` mutate `items` truc tiep (`items?.addAll`); neu `items==null` thi trang moi bi mat (addAll tren null = no-op). Vi pham immutable. | Khoi tao `items ??= []` truoc addAll, hoac tao list moi. |
+| contracts/screens/contract_detail_screen.dart:989,1194 | async-race | LOW | Dung `this.context` trong builder dialog show SnackBar ma khong check `mounted` truoc do; context cha co the da dispose neu dialog song lau. | `if (!mounted) return;` truoc `ScaffoldMessenger.of(this.context)`. |
+| promotion/screens/promotion_update_screen.dart:214-226 | error-handling | LOW | `DateField onSelected` chi gan bien khong setState; can xac nhan DateField tu reflect ngay chon, neu khong man hinh khong cap nhat. | Xac nhan hanh vi DateField; them setState neu can. |
+
+## Ghi chu bao mat (khong phai loi, de doi chieu)
+- Token: doc tu `StorageService.getAccessToken()`, KHONG log ra. `dart:developer log` chi log message loi (khong kem token/body). OK.
+- TLS/pinning: tat ca request qua `SecureHttpClient`, co `setPinningCheckerForTesting` -> co co che cert pinning. OK (config android/ios ngoai pham vi M4).
+- Khong tim thay hardcode key/secret/URL trong 3 module. URL lay tu `ApiEndpoints`. OK.
+- Tat ca endpoint deu gan header `Authorization: Bearer`. Diem yeu duy nhat: 3 cho thieu guard token rong (booking_service + 4 ham promotion service) co the gui "Bearer null".
+
+## Khuyen nghi uu tien
+1. (HIGH) Fix nham controller `usageLimitPerUser` o promotion_update_screen.dart:262.
+2. (HIGH) Them guard token rong cho booking_service.dart va promotion_management_service.dart.
+3. (HIGH) Dialog doi trang thai hop dong: noi API that, khong de SnackBar bao "da cap nhat" khi chua luu len server.
+4. (HIGH) `_loadDetail` nhanh else: bao mounted truoc khi dung context/setState.
+5. (MEDIUM) Chuan hoa cast `as int`/`as num` trong contracts_screen.dart sang `_asInt/_asNum`.
+6. (MEDIUM) promotion_management_screen: dispose controllers + add scroll listener 1 lan; bo `setState` boc ham async.

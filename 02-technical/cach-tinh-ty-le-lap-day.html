@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cách tính tỷ lệ lấp đầy (fill-rate) — AMZ</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --warnbg:#3a2e12;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6;padding:0 0 80px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#0c4a6e,#0f172a);padding:38px 0 28px;border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 6px;font-size:27px;letter-spacing:-.5px}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:#1e293b;border:1px solid var(--line);padding:4px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .badge b{color:var(--accent2)}
+  h2{font-size:21px;margin:36px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h2 .num{color:var(--accent2);font-family:monospace;margin-right:8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:14px 0}
+  .diagram{background:#0b1220;border-radius:12px;padding:16px;overflow:auto;text-align:center;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:#0b1220;color:var(--accent2);font-weight:600}
+  tr:nth-child(even) td{background:#172033}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;color:#fbbf24;font-family:Consolas,monospace}
+  ul{padding-left:20px} li{margin:7px 0}
+  .callout{border-radius:12px;padding:14px 18px;margin:14px 0;border-left:4px solid}
+  .callout.warn{background:var(--warnbg);border-color:var(--warn)} .callout.warn b{color:#fbbf24}
+  .callout.info{background:#0c2a3a;border-color:var(--accent2)} .callout.info b{color:#7dd3fc}
+  .callout.ok{background:#0c2e1c;border-color:var(--accent)} .callout.ok b{color:#86efac}
+  .note{color:var(--muted);font-size:13px;font-style:italic}
+  /* Day strip */
+  .strip-wrap{margin:14px 0}
+  .strip-label{font-size:13px;color:var(--muted);margin-bottom:5px}
+  .strip{display:flex;gap:4px;flex-wrap:wrap}
+  .day{width:46px;height:46px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:1px solid var(--line)}
+  .day .d{font-size:10px;color:rgba(255,255,255,.65);font-weight:400}
+  .day.old{background:#0c4a6e;color:#bae6fd;border-color:#0ea5e9}
+  .day.new{background:#14532d;color:#bbf7d0;border-color:#22c55e}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:8px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .dot{width:14px;height:14px;border-radius:4px;display:inline-block}
+  .formula{font-family:monospace;background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:10px 14px;display:inline-block;margin:6px 0;color:#a5b4fc}
+  footer{margin-top:46px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>📊 Cách tính tỷ lệ lấp đầy (fill-rate)</h1>
+    <div style="color:var(--muted)">AMZ cho thuê xe · tài liệu kỹ thuật (logic tính, không phải luồng thao tác)</div>
+    <div class="badges">
+      <span class="badge">Cập nhật: <b>2026-06-09</b></span>
+      <span class="badge">Nguồn: <b>ReportFillRateServiceImpl.java</b></span>
+      <span class="badge">Endpoint: <b>POST /xanh/admin/reports/fill-rate</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="callout info">
+    Tài liệu này tách riêng vì fill-rate là <b>logic tính toán</b> (không có phía khách). Dùng ở <b>F13</b> (báo cáo) + <b>F19</b> (dashboard). Giống cách <code>state-machine.md</code> tách trạng thái booking.
+  </div>
+
+  <h2><span class="num">1.</span>Ý tưởng</h2>
+  <div class="card">
+    <div class="formula">tỷ lệ lấp đầy = số ngày-xe CÓ KHÁCH THUÊ ÷ tổng ngày-xe KHẢ DỤNG</div>
+    <p style="margin:8px 0 0">Tính cho <b>từng xe</b> trong 1 kỳ, rồi lấy <b>trung bình</b> cả đội.</p>
+  </div>
+
+  <h2><span class="num">2.</span>Nguồn dữ liệu: đọc <code>booking_car_history</code>, KHÔNG đọc <code>booking.car_id</code></h2>
+  <ul>
+    <li>Sau khi đổi xe, <code>booking.car_id</code> chỉ lưu <b>xe cuối cùng</b>. Đếm theo <code>car_id</code> thì xe cũ mất hết ngày đã chạy.</li>
+    <li>Nên đếm ngày thuê đọc từ bảng <b><code>booking_car_history</code></b> — mỗi dòng = 1 khoảng <code>[fromDate, toDate]</code> xe đó ở với khách.</li>
+    <li>Chỉ tính booking trạng thái: <b>ONGOING (3), COMPLETED (4), REFUND_PENDING (6)</b>.</li>
+  </ul>
+
+  <h2><span class="num">2b.</span>Dữ liệu đổ vào <code>booking_car_history</code> thế nào</h2>
+  <div class="diagram"><pre class="mermaid">
+graph LR
+    A["Tạo booking<br/>(createBooking)"] -- "createInitialRow<br/>[start, end] xe ban đầu" --> H[("booking_car_history")]
+    B["Đổi xe — HIỆN TRƯỜNG<br/>(change-car/deliver)"] -- "closeAndOpenNew<br/>đóng xe cũ + mở xe mới" --> H
+    C["Gia hạn<br/>(extendBooking)"] -. "updateLatestToDate<br/>⚠️ KHÔNG được gọi" .-> H
+    H --> F["Báo cáo fill-rate<br/>(đọc fromDate/toDate)"]
+    classDef ok fill:#14532d,stroke:#22c55e,color:#dcfce7;
+    classDef gap fill:#3a2e12,stroke:#f59e0b,color:#fef3c7;
+    classDef store fill:#1e293b,stroke:#64748b,color:#e2e8f0;
+    class A,B ok; class C gap; class H,F store;
+  </pre></div>
+
+  <table>
+    <thead><tr><th>Thời điểm</th><th>Hàm</th><th>Ghi gì</th></tr></thead>
+    <tbody>
+      <tr><td><b>Tạo booking</b> (<code>createBooking</code>)</td><td><code>createInitialRow</code></td><td>1 dòng <code>[startDate, endDate]</code> cho xe ban đầu (theo giờ bắt đầu/kết thúc <b>dự kiến</b>)</td></tr>
+      <tr><td><b>Đổi xe — bước HIỆN TRƯỜNG</b> (<code>change-car/deliver</code>)</td><td><code>closeAndOpenNew</code></td><td>đóng dòng xe cũ (<code>toDate = hôm nay − 1</code>), mở dòng xe mới <code>[hôm nay, toDate cũ]</code>. Mốc = ngày giao thực tế</td></tr>
+      <tr><td><b>Gia hạn</b></td><td><code>updateLatestToDate</code></td><td>(đã định nghĩa) cập nhật <code>toDate</code> dòng mới nhất</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info"><b>① Ghi lúc tạo booking là "best-effort":</b> chạy trong <code>try/catch</code> + transaction riêng (<code>REQUIRES_NEW</code>). Ghi lỗi → <b>booking vẫn tạo</b>, chỉ log cảnh báo → history thiếu, phải <b>backfill</b>. Booking thiếu history sẽ <b>không được fill-rate đếm ngày thuê</b>.</div>
+  <div class="callout info"><b>② Chỉ bước "hiện trường" mới ghi đổi xe:</b> bước "văn phòng" (<code>change-car</code>) chốt xe mới nhưng <b>KHÔNG</b> ghi history. Mốc cắt = <b>ngày giao xe mới thực tế</b> (hôm nay), không phải ngày quyết định ở văn phòng.</div>
+  <div class="callout warn"><b>③ ⚠️ GAP đã xác minh — gia hạn KHÔNG cập nhật history:</b> hàm <code>updateLatestToDate</code> có định nghĩa + unit test (TC-BCH-4) nhưng <b>không có nơi nào trong code production gọi nó</b> (grep toàn repo). <code>extendBooking</code> chỉ cập nhật <code>new_bookings.end_time</code>, <b>không đụng</b> <code>booking_car_history.to_date</code>.<br><b>Hệ quả:</b> ngày gia hạn thêm <b>không được đếm là "thuê"</b> (fill-rate đọc <code>history.toDate</code>, không đọc <code>booking.endTime</code>) → tỷ lệ <b>thấp hơn thực tế</b>. Rút ngắn/trả sớm cũng không chỉnh → có thể <b>đếm dư</b>. <b>Đề xuất BE:</b> nối <code>updateLatestToDate</code> vào luồng gia hạn (+ cân nhắc cập nhật theo ngày trả thực tế khi nhận xe).</div>
+
+  <h2><span class="num">3.</span>Chia ngày khi ĐỔI XE (câu hỏi hay gặp)</h2>
+  <p>Khi đổi xe ở ngày <code>swapDate</code> (xem F08/F24):</p>
+  <table>
+    <thead><tr><th>Xe</th><th>Khoảng được tính lấp đầy</th></tr></thead>
+    <tbody>
+      <tr><td><b>Xe cũ</b></td><td>đóng dòng lịch sử: <code>toDate = swapDate − 1</code></td></tr>
+      <tr><td><b>Xe mới</b></td><td>mở dòng mới: <code>fromDate = swapDate</code> → <code>toDate</code> = ngày kết thúc</td></tr>
+    </tbody>
+  </table>
+  <div class="callout ok"><b>KHÔNG chia đôi đều.</b> Mỗi xe gánh <b>đúng số ngày thực tế</b> nó chạy. Ranh giới sạch, <b>không tính trùng</b> ngày đổi cho cả hai. Tổng luôn đúng = số ngày của đơn.</div>
+
+  <div class="card">
+    <b>Ví dụ trực quan — đơn 10 ngày (ngày 1→10)</b>
+    <div class="strip-wrap">
+      <div class="strip-label">Đổi xe <b>ngày 6</b> → xe cũ 5 ngày, xe mới 5 ngày (tình cờ bằng nhau):</div>
+      <div class="strip">
+        <div class="day old"><span class="d">ngày</span>1</div>
+        <div class="day old"><span class="d">ngày</span>2</div>
+        <div class="day old"><span class="d">ngày</span>3</div>
+        <div class="day old"><span class="d">ngày</span>4</div>
+        <div class="day old"><span class="d">ngày</span>5</div>
+        <div class="day new"><span class="d">ngày</span>6</div>
+        <div class="day new"><span class="d">ngày</span>7</div>
+        <div class="day new"><span class="d">ngày</span>8</div>
+        <div class="day new"><span class="d">ngày</span>9</div>
+        <div class="day new"><span class="d">ngày</span>10</div>
+      </div>
+    </div>
+    <div class="strip-wrap">
+      <div class="strip-label">Đổi xe <b>ngày 3</b> → xe cũ 2 ngày, xe mới 8 ngày (KHÔNG 50/50, theo thực tế):</div>
+      <div class="strip">
+        <div class="day old"><span class="d">ngày</span>1</div>
+        <div class="day old"><span class="d">ngày</span>2</div>
+        <div class="day new"><span class="d">ngày</span>3</div>
+        <div class="day new"><span class="d">ngày</span>4</div>
+        <div class="day new"><span class="d">ngày</span>5</div>
+        <div class="day new"><span class="d">ngày</span>6</div>
+        <div class="day new"><span class="d">ngày</span>7</div>
+        <div class="day new"><span class="d">ngày</span>8</div>
+        <div class="day new"><span class="d">ngày</span>9</div>
+        <div class="day new"><span class="d">ngày</span>10</div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:#0ea5e9"></i> Xe cũ</span>
+      <span><i class="dot" style="background:#22c55e"></i> Xe mới</span>
+    </div>
+  </div>
+
+  <h2><span class="num">4.</span>Đơn vị tính = NGÀY (không theo giờ)</h2>
+  <p>Mỗi ngày của 1 xe có 3 trạng thái: <b>0 = trống, 1 = thuê, 2 = bảo dưỡng</b>. <b>Bảo dưỡng ghi đè thuê</b> (một ngày vừa thuê vừa bảo dưỡng → tính là bảo dưỡng).</p>
+  <div class="callout warn"><b>Hệ quả:</b> đổi xe lúc giữa ngày (vd 14h) → <b>cả ngày đổi tính cho xe mới</b>; xe cũ chỉ tới hết <code>swapDate − 1</code>. Không ai bị tính trùng, nhưng xe cũ "mất" phần ngày đổi.</div>
+
+  <h2><span class="num">5.</span>Công thức GROSS vs NET</h2>
+  <div class="formula">tỷ lệ 1 xe = số ngày thuê ÷ mẫu số × 100</div>
+  <table>
+    <thead><tr><th>Công thức</th><th>Mẫu số</th><th>Ý nghĩa</th></tr></thead>
+    <tbody>
+      <tr><td><b>GROSS</b> (mặc định)</td><td>tổng số ngày trong kỳ</td><td>tính cả ngày xe nằm xưởng</td></tr>
+      <tr><td><b>NET</b></td><td>tổng ngày trong kỳ − số ngày bảo dưỡng (tối thiểu 1)</td><td>bỏ ngày bảo dưỡng → tỷ lệ cao hơn</td></tr>
+    </tbody>
+  </table>
+  <div class="callout info"><b>Tỷ lệ trung bình đội = trung bình cộng tỷ lệ từng xe</b> (KHÔNG phải tổng ngày thuê ÷ tổng ngày khả dụng).</div>
+
+  <h2><span class="num">6.</span>Loại trừ &amp; bộ lọc</h2>
+  <ul>
+    <li><b>Xe ký gửi (CONSIGNED) mặc định KHÔNG tính</b> (không thuộc đội xe công ty). Bật bằng <code>includeConsigned=true</code>.</li>
+    <li>Có thể <b>ẩn xe INACTIVE</b> (<code>hideInactive</code>), <b>lọc theo bến hiện tại</b> (<code>stationId</code> thực tế, không dùng <code>home_station_id</code>), <b>lọc biển số</b> (<code>plateKeyword</code>).</li>
+    <li>Kỳ báo cáo <b>tối đa 366 ngày</b>.</li>
+  </ul>
+
+  <h2><span class="num">7.</span>Các lát cắt báo cáo trả về</h2>
+  <ul>
+    <li><b>KPI:</b> tỷ lệ TB, tổng ngày-xe thuê, tổng ngày-xe khả dụng, số xe đang bảo dưỡng, số hợp đồng trong kỳ, <b>xu hướng so kỳ trước</b> (kỳ liền trước cùng độ dài).</li>
+    <li><b>Theo thứ trong tuần</b> (T2→CN), <b>theo ngày</b> (series), <b>theo bến</b> (groups).</li>
+  </ul>
+
+  <h2>Lưu ý kiểm chứng</h2>
+  <div class="callout info">
+    <ul style="margin:0">
+      <li>Toàn bộ đọc trực tiếp từ <code>ReportFillRateServiceImpl.java</code> ngày 2026-06-09.</li>
+      <li><b>Cảnh báo công thức TB:</b> "TB đội = trung bình cộng tỷ lệ từng xe" → xe ít ngày khả dụng vẫn cân <b>1 phiếu</b> như xe nhiều ngày (không trọng số). Muốn trọng số phải đổi <code>buildKpi</code>.</li>
+      <li>Bảng DB thật: <code>booking_car_history</code>, <code>new_bookings</code>, <code>new_cars</code>, <code>maintenance_tickets</code>, <code>new_station_locations</code>.</li>
+    </ul>
+  </div>
+
+  <footer>
+    Sinh từ <code>docs/02-technical/cach-tinh-ty-le-lap-day.md</code>. Liên quan: luồng F08/F24 (đổi xe) trong <code>01-business/luong-nghiep-vu-tong-hop.html</code>.
+    <br>Cần internet để vẽ sơ đồ (Mermaid tải từ CDN).
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad:true, theme:'dark', securityLevel:'loose', flowchart:{ curve:'basis', htmlLabels:true } });
+</script>
+</body>
+</html>

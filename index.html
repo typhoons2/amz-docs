@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tài liệu hệ thống AMZ</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
+<style>
+  :root{
+    --bg:#0f172a; --bg2:#0b1220; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --warnbg:#3a2e12; --danger:#ef4444;
+    --sidebar:300px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.65}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ===== Layout ===== */
+  .app{display:grid;grid-template-columns:var(--sidebar) 1fr;height:100vh;overflow:hidden}
+  .sidebar{background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .main{overflow-y:auto;min-width:0}
+
+  /* ===== Sidebar ===== */
+  .brand{padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+  .brand h1{margin:0;font-size:18px;letter-spacing:-.3px;display:flex;gap:8px;align-items:center;cursor:pointer}
+  .brand .sub{color:var(--muted);font-size:12px;margin-top:4px}
+  .search{padding:12px 14px;border-bottom:1px solid var(--line)}
+  .search input{width:100%;background:var(--card);border:1px solid var(--line);border-radius:9px;
+    padding:9px 12px;color:var(--txt);font-size:13.5px;outline:none}
+  .search input:focus{border-color:var(--accent2)}
+  .search .hint{color:var(--muted);font-size:11px;margin-top:6px}
+  .nav{overflow-y:auto;padding:8px 8px 40px;flex:1;min-height:0}
+  .sec{margin:2px 0}
+  .sec-head{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;
+    color:var(--txt);font-size:13.5px;font-weight:600;user-select:none}
+  .sec-head:hover{background:var(--card)}
+  .sec-head .ico{width:18px;text-align:center}
+  .sec-head .chev{margin-left:auto;color:var(--muted);font-size:11px;transition:transform .15s}
+  .sec.collapsed .chev{transform:rotate(-90deg)}
+  .sec.collapsed .sec-items{display:none}
+  .sec-items{padding:2px 0 6px 6px;margin-left:12px;border-left:1px solid var(--line)}
+  .nav-item{display:flex;gap:7px;align-items:flex-start;padding:6px 10px;border-radius:7px;cursor:pointer;
+    color:var(--muted);font-size:13px;line-height:1.4}
+  .nav-item:hover{background:var(--card);color:var(--txt)}
+  .nav-item.active{background:#14532d;color:#dcfce7}
+  .nav-item .vt{font-size:10px;color:var(--accent);flex:none;margin-top:2px}
+  .nav-item.hidden{display:none}
+  .sec.hidden{display:none}
+
+  /* ===== Content ===== */
+  .topbar{position:sticky;top:0;z-index:5;background:rgba(15,23,42,.86);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);padding:11px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .crumb{color:var(--muted);font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .crumb b{color:var(--txt)}
+  .btn{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:8px;
+    padding:6px 12px;font-size:12.5px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+  .btn:hover{border-color:var(--accent2)}
+  .btn.visual{background:#14532d;border-color:#22c55e;color:#bbf7d0}
+  .menu-toggle{display:none}
+
+  .content{max-width:960px;margin:0 auto;padding:28px 28px 90px}
+  .content h1{font-size:30px;margin:6px 0 18px;letter-spacing:-.5px;line-height:1.25}
+  .content h2{font-size:22px;margin:34px 0 12px;padding-bottom:7px;border-bottom:2px solid var(--line);scroll-margin-top:70px}
+  .content h3{font-size:17.5px;margin:24px 0 10px;color:var(--accent2);scroll-margin-top:70px}
+  .content h4{font-size:15px;margin:18px 0 8px;color:#cbd5e1}
+  .content p{margin:12px 0}
+  .content ul,.content ol{padding-left:22px}
+  .content li{margin:6px 0}
+  .content img{max-width:100%;border-radius:10px;border:1px solid var(--line)}
+  .content hr{border:none;border-top:1px solid var(--line);margin:28px 0}
+  .content blockquote{margin:14px 0;padding:10px 16px;border-left:4px solid var(--accent2);
+    background:#0c2a3a;border-radius:0 10px 10px 0;color:#cbd5e1}
+  .content blockquote p{margin:6px 0}
+  .content code{background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;
+    font-size:13px;color:#fbbf24;font-family:"SF Mono",Consolas,monospace}
+  .content pre{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;margin:16px 0}
+  .content pre code{background:none;border:none;padding:0;color:#e2e8f0;font-size:13px}
+  .tbl-wrap{overflow-x:auto;margin:16px 0;border:1px solid var(--line);border-radius:12px}
+  .content table{width:100%;border-collapse:collapse;font-size:13.5px}
+  .content th,.content td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  .content th{background:var(--bg2);color:var(--accent2);font-weight:600;white-space:nowrap}
+  .content tr:nth-child(even) td{background:#172033}
+  .mermaid{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:18px;text-align:center;margin:16px 0;overflow:auto}
+  .anchor{opacity:0;margin-left:8px;font-size:.7em;color:var(--muted)}
+  h2:hover .anchor,h3:hover .anchor{opacity:1}
+
+  .pager{display:flex;gap:14px;margin-top:48px;border-top:1px solid var(--line);padding-top:22px}
+  .pager a{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;color:var(--txt)}
+  .pager a:hover{border-color:var(--accent2);text-decoration:none}
+  .pager .dir{color:var(--muted);font-size:12px}
+  .pager .ttl{font-weight:600;margin-top:3px;font-size:14px}
+  .pager a.next{text-align:right}
+
+  /* ===== Home ===== */
+  .hero{background:linear-gradient(135deg,#14532d,#0f172a);border:1px solid var(--line);
+    border-radius:18px;padding:34px 30px;margin-bottom:26px}
+  .hero h1{margin:0 0 8px;border:none;font-size:30px}
+  .hero p{color:#cbd5e1;margin:6px 0;max-width:680px}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 18px;min-width:120px}
+  .stat .n{font-size:24px;font-weight:700;color:var(--accent)}
+  .stat .l{color:var(--muted);font-size:12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:8px}
+  .sc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;cursor:pointer;transition:.15s}
+  .sc:hover{border-color:var(--accent2);transform:translateY(-2px)}
+  .sc .ic{font-size:24px}
+  .sc h3{margin:8px 0 4px;color:var(--txt);font-size:16px}
+  .sc .c{color:var(--muted);font-size:12.5px}
+  .home-section-title{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:30px 0 10px}
+
+  /* ===== Search results ===== */
+  .sr{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0;cursor:pointer}
+  .sr:hover{border-color:var(--accent2)}
+  .sr .p{color:var(--muted);font-size:11.5px}
+  .sr .t{font-weight:600;margin:3px 0;color:var(--txt)}
+  .sr .ex{color:#cbd5e1;font-size:12.5px}
+  .sr .ex mark{background:#854d0e;color:#fde68a;border-radius:3px;padding:0 2px}
+
+  @media(max-width:860px){
+    .app{grid-template-columns:1fr}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:84%;max-width:320px;z-index:30;
+      transform:translateX(-100%);transition:transform .2s}
+    .app.nav-open .sidebar{transform:none}
+    .app.nav-open::after{content:"";position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20}
+    .menu-toggle{display:inline-flex}
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <h1 onclick="goHome()">📚 <span>Tài liệu AMZ</span></h1>
+      <div class="sub">Hệ thống cho thuê xe — bản đồ tri thức</div>
+    </div>
+    <div class="search">
+      <input id="q" type="text" placeholder="🔍 Tìm tài liệu... (Enter để tìm nội dung)" autocomplete="off">
+      <div class="hint">Gõ để lọc danh sách · nhấn <b>Enter</b> để tìm trong nội dung</div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+  </aside>
+
+  <section class="main" id="main">
+    <div class="topbar">
+      <button class="btn menu-toggle" onclick="toggleNav()">☰</button>
+      <div class="crumb" id="crumb">Trang chủ</div>
+      <button class="btn" id="visualBtn" style="display:none">🎨 Bản trực quan</button>
+    </div>
+    <div class="content" id="content"></div>
+  </section>
+</div>
+
+<script src="docs-data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+const DATA = window.DOCS_DATA || {sections:[],files:[],stats:{}};
+const byPath = new Map(DATA.files.map(f => [f.path, f]));
+const mdOrder = DATA.files.filter(f => f.type === 'md'); // thu tu dieu huong prev/next
+let mermaidReady = false;
+
+function initMermaid(){
+  if (mermaidReady || !window.mermaid) return;
+  mermaid.initialize({startOnLoad:false, theme:'dark', securityLevel:'loose',
+    flowchart:{curve:'basis', htmlLabels:true, padding:14}});
+  mermaidReady = true;
+}
+
+/* ---------- Sidebar ---------- */
+function buildNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  for (const sec of DATA.sections){
+    const items = DATA.files.filter(f => f.section === sec.dir);
+    if (!items.length) continue;
+    const wrap = document.createElement('div');
+    wrap.className = 'sec';
+    wrap.dataset.dir = sec.dir;
+    const head = document.createElement('div');
+    head.className = 'sec-head';
+    head.innerHTML = `<span class="ico">${sec.icon}</span><span>${esc(sec.title)}</span><span class="chev">▼</span>`;
+    head.onclick = () => wrap.classList.toggle('collapsed');
+    wrap.appendChild(head);
+    const list = document.createElement('div');
+    list.className = 'sec-items';
+    for (const f of items){
+      const it = document.createElement('div');
+      it.className = 'nav-item';
+      it.dataset.path = f.path;
+      const vt = f.type === 'html' ? '🎨' : (f.visualHtml ? '<span class="vt" title="Có bản trực quan">●</span>' : '');
+      it.innerHTML = `<span style="flex:1">${esc(f.title)}</span>${vt}`;
+      it.onclick = () => navigate(f.path);
+      list.appendChild(it);
+    }
+    wrap.appendChild(list);
+    nav.appendChild(wrap);
+  }
+}
+
+function highlightNav(path){
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.path === path);
+  });
+  // mo section chua file active
+  const item = document.querySelector(`.nav-item[data-path="${cssEsc(path)}"]`);
+  if (item) item.closest('.sec')?.classList.remove('collapsed');
+}
+
+/* ---------- Routing ---------- */
+function navigate(path, anchor){
+  location.hash = '#/' + path + (anchor ? '#' + anchor : '');
+}
+function goHome(){ location.hash = ''; }
+
+window.addEventListener('hashchange', route);
+function route(){
+  const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
+  closeNav();
+  if (!h){ renderHome(); return; }
+  // tach anchor (phan sau dau # thu 2)
+  let path = h, anchor = '';
+  const hi = h.indexOf('#');
+  if (hi >= 0){ path = h.slice(0, hi); anchor = h.slice(hi+1); }
+  const f = byPath.get(path);
+  if (!f){ renderHome(); return; }
+  if (f.type === 'html'){ window.open(f.path, '_blank'); history.back(); return; }
+  renderDoc(f, anchor);
+}
+
+/* ---------- Render document ---------- */
+function renderDoc(f, anchor){
+  const main = document.getElementById('main');
+  main.scrollTop = 0;
+  document.getElementById('crumb').innerHTML =
+    `${esc(sectionTitle(f.section))} <span style="opacity:.5">/</span> <b>${esc(f.title)}</b>`;
+  const vb = document.getElementById('visualBtn');
+  if (f.visualHtml){
+    vb.style.display = '';
+    vb.onclick = () => window.open(f.visualHtml, '_blank');
+  } else vb.style.display = 'none';
+
+  const html = marked.parse(f.md, {gfm:true, breaks:false, mangle:false, headerIds:false});
+  const el = document.getElementById('content');
+  el.innerHTML = html;
+  postProcess(el, f);
+  renderPager(el, f);
+  highlightNav(f.path);
+  if (anchor){
+    const t = el.querySelector('#' + cssEsc(anchor)) || [...el.querySelectorAll('h2,h3,h4')].find(h => slug(h.textContent) === anchor);
+    if (t) setTimeout(() => t.scrollIntoView({behavior:'smooth', block:'start'}), 60);
+  }
+}
+
+function postProcess(el, f){
+  // 1) Bang -> boc trong wrapper cuon ngang
+  el.querySelectorAll('table').forEach(t => {
+    if (t.parentElement.classList.contains('tbl-wrap')) return;
+    const w = document.createElement('div'); w.className = 'tbl-wrap';
+    t.replaceWith(w); w.appendChild(t);
+  });
+  // 2) Mermaid: pre>code.language-mermaid -> div.mermaid
+  el.querySelectorAll('pre code.language-mermaid').forEach(c => {
+    const div = document.createElement('div'); div.className = 'mermaid';
+    div.textContent = c.textContent;
+    c.closest('pre').replaceWith(div);
+  });
+  // 3) Highlight code con lai
+  el.querySelectorAll('pre code').forEach(c => {
+    if (c.classList.contains('language-mermaid')) return;
+    try { hljs.highlightElement(c); } catch(e){}
+  });
+  // 4) Anchor cho heading
+  el.querySelectorAll('h2,h3').forEach(h => {
+    const id = slug(h.textContent);
+    h.id = id;
+    const a = document.createElement('a');
+    a.className = 'anchor'; a.href = '#/' + f.path + '#' + id; a.textContent = '#';
+    a.onclick = (e) => { e.preventDefault(); navigate(f.path, id); };
+    h.appendChild(a);
+  });
+  // 5) Rewrite links + images theo vi tri file hien tai
+  el.querySelectorAll('a[href]').forEach(a => rewriteLink(a, f.path));
+  el.querySelectorAll('img[src]').forEach(img => {
+    const s = img.getAttribute('src');
+    if (s && !/^https?:|^data:/.test(s)) img.setAttribute('src', resolve(f.path, s));
+  });
+  // 6) Ve mermaid
+  const nodes = el.querySelectorAll('.mermaid');
+  if (nodes.length){ initMermaid(); try { mermaid.run({nodes}); } catch(e){} }
+}
+
+function rewriteLink(a, fromPath){
+  let href = a.getAttribute('href') || '';
+  if (!href || href.startsWith('#') && !href.startsWith('#/')){ // anchor noi bo trong trang
+    if (href.startsWith('#')){
+      a.onclick = (e) => { e.preventDefault(); navigate(fromPath, href.slice(1)); };
+    }
+    return;
+  }
+  if (/^https?:\/\//i.test(href) || href.startsWith('mailto:')){ a.target = '_blank'; a.rel = 'noopener'; return; }
+  // tach anchor
+  let anchor = ''; const hi = href.indexOf('#');
+  if (hi >= 0){ anchor = href.slice(hi+1); href = href.slice(0, hi); }
+  const resolved = resolve(fromPath, href);
+  const target = byPath.get(resolved);
+  if (target){
+    a.href = '#/' + resolved + (anchor ? '#' + anchor : '');
+    a.onclick = (e) => { e.preventDefault();
+      if (target.type === 'html') window.open(target.path, '_blank');
+      else navigate(resolved, anchor);
+    };
+  } else if (/\.html?$/i.test(resolved)){
+    a.href = resolved; a.target = '_blank'; a.rel = 'noopener';
+  } else {
+    // file ngoai pham vi (vd CLAUDE.md o root Project) -> bao nhe
+    a.onclick = (e) => { e.preventDefault();
+      alert('Tài liệu này nằm ngoài thư mục docs/:\n' + resolved + '\n(mở trực tiếp trong repo)'); };
+  }
+}
+
+function renderPager(el, f){
+  const i = mdOrder.findIndex(x => x.path === f.path);
+  if (i < 0) return;
+  const prev = mdOrder[i-1], next = mdOrder[i+1];
+  const pager = document.createElement('div'); pager.className = 'pager';
+  if (prev){
+    const a = document.createElement('a'); a.href = '#/' + prev.path;
+    a.innerHTML = `<div class="dir">← Trước</div><div class="ttl">${esc(prev.title)}</div>`;
+    a.onclick = (e) => { e.preventDefault(); navigate(prev.path); };
+    pager.appendChild(a);
+  }
+  if (next){
+    const a = document.createElement('a'); a.className = 'next'; a.href = '#/' + next.path;
+    a.innerHTML = `<div class="dir">Tiếp →</div><div class="ttl">${esc(next.title)}</div>`;
+    a.onclick = (e) => { e.preventDefault(); navigate(next.path); };
+    pager.appendChild(a);
+  }
+  el.appendChild(pager);
+}
+
+/* ---------- Home ---------- */
+function renderHome(){
+  document.getElementById('crumb').textContent = 'Trang chủ';
+  document.getElementById('visualBtn').style.display = 'none';
+  highlightNav(null);
+  const s = DATA.stats || {};
+  let h = `<div class="hero">
+    <h1>📚 Tài liệu hệ thống AMZ</h1>
+    <p>Toàn bộ tài liệu nghiệp vụ, kỹ thuật, báo cáo và quyết định kiến trúc của hệ thống cho thuê xe AMZ — gom về một nơi, liên kết với nhau, tìm kiếm được.</p>
+    <p style="color:var(--muted);font-size:13px">Cập nhật dữ liệu: ${esc(DATA.generatedAt||'')} · Mở bằng cách nhấp đúp file (không cần server). Sơ đồ cần internet (thư viện Mermaid).</p>
+    <div class="stats">
+      <div class="stat"><div class="n">${s.docs||0}</div><div class="l">tài liệu</div></div>
+      <div class="stat"><div class="n">${s.visuals||0}</div><div class="l">bản trực quan 🎨</div></div>
+      <div class="stat"><div class="n">${s.sections||0}</div><div class="l">nhóm chủ đề</div></div>
+    </div>
+  </div>`;
+
+  // Goi y loi vao nhanh
+  const quick = ['00-overview/kien-truc-tong-the.md','00-overview/system-architecture.md',
+    '01-business/luong-nghiep-vu-tong-hop.md','02-technical/ban-do-dong-tien.md',
+    '01-business/permission-matrix.md','03-reports/bao-cao-lo-hong-dong-tien-BE.md']
+    .map(p => byPath.get(p)).filter(Boolean);
+  if (quick.length){
+    h += `<div class="home-section-title">Bắt đầu nhanh</div><div class="grid">`;
+    for (const f of quick){
+      h += card(f.path, '⭐', f.title, (f.visualHtml?'Có bản trực quan 🎨 · ':'') + sectionTitle(f.section));
+    }
+    h += `</div>`;
+  }
+
+  // Theo nhom chu de (chi muc cap 1)
+  h += `<div class="home-section-title">Tất cả chủ đề</div><div class="grid">`;
+  for (const sec of DATA.sections){
+    if (sec.dir.includes('/')) continue; // bo cap con cho gon
+    const n = DATA.files.filter(f => f.section === sec.dir || f.section.startsWith(sec.dir + '/')).length;
+    h += `<div class="sc" onclick="openSection('${cssEsc(sec.dir)}')">
+      <div class="ic">${sec.icon}</div><h3>${esc(sec.title)}</h3>
+      <div class="c">${n} tài liệu</div></div>`;
+  }
+  h += `</div>`;
+  document.getElementById('content').innerHTML = h;
+  document.getElementById('main').scrollTop = 0;
+}
+function card(path, ic, title, sub){
+  return `<div class="sc" onclick="navigate('${cssEsc(path)}')">
+    <div class="ic">${ic}</div><h3>${esc(title)}</h3><div class="c">${esc(sub)}</div></div>`;
+}
+function openSection(dir){
+  const first = DATA.files.find(f => f.section === dir || f.section.startsWith(dir + '/'));
+  const wrap = document.querySelector(`.sec[data-dir="${cssEsc(dir)}"]`);
+  if (wrap) wrap.classList.remove('collapsed');
+  if (first) navigate(first.path);
+}
+
+/* ---------- Search ---------- */
+const q = document.getElementById('q');
+q.addEventListener('input', () => filterNav(q.value.trim().toLowerCase()));
+q.addEventListener('keydown', (e) => { if (e.key === 'Enter') fullSearch(q.value.trim()); });
+
+function filterNav(term){
+  document.querySelectorAll('.sec').forEach(sec => {
+    let any = false;
+    sec.querySelectorAll('.nav-item').forEach(it => {
+      const f = byPath.get(it.dataset.path);
+      const hit = !term || (f.title.toLowerCase().includes(term) || f.path.toLowerCase().includes(term));
+      it.classList.toggle('hidden', !hit);
+      if (hit) any = true;
+    });
+    sec.classList.toggle('hidden', !any);
+    if (term && any) sec.classList.remove('collapsed');
+  });
+}
+function fullSearch(term){
+  if (!term){ return; }
+  const t = term.toLowerCase();
+  const results = [];
+  for (const f of DATA.files){
+    if (f.type !== 'md' || !f.md) {
+      if (f.title.toLowerCase().includes(t)) results.push({f, ex:''});
+      continue;
+    }
+    const lc = f.md.toLowerCase();
+    const idx = lc.indexOf(t);
+    if (idx >= 0 || f.title.toLowerCase().includes(t)){
+      let ex = '';
+      if (idx >= 0){
+        const start = Math.max(0, idx-50), end = Math.min(f.md.length, idx+term.length+90);
+        ex = (start>0?'…':'') + f.md.slice(start, end).replace(/\n+/g,' ') + '…';
+      }
+      results.push({f, ex});
+    }
+  }
+  document.getElementById('crumb').innerHTML = `🔍 Kết quả cho “<b>${esc(term)}</b>”`;
+  document.getElementById('visualBtn').style.display = 'none';
+  let h = `<h1>🔍 ${results.length} kết quả cho “${esc(term)}”</h1>`;
+  if (!results.length) h += `<p style="color:var(--muted)">Không tìm thấy. Thử từ khóa khác.</p>`;
+  for (const {f, ex} of results){
+    let exHtml = esc(ex);
+    if (ex){ const re = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'ig');
+      exHtml = esc(ex).replace(re, '<mark>$1</mark>'); }
+    h += `<div class="sr" onclick="navigate('${cssEsc(f.path)}')">
+      <div class="p">${esc(sectionTitle(f.section))} · ${esc(f.path)}</div>
+      <div class="t">${esc(f.title)}${f.visualHtml?' 🎨':''}</div>
+      ${ex?`<div class="ex">${exHtml}</div>`:''}</div>`;
+  }
+  document.getElementById('content').innerHTML = h;
+  document.getElementById('main').scrollTop = 0;
+}
+
+/* ---------- Helpers ---------- */
+function sectionTitle(dir){ return DATA.sections.find(s => s.dir === dir)?.title || dir; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function cssEsc(s){ return String(s).replace(/['"\\]/g, '\\$&'); }
+function slug(s){ return String(s).toLowerCase().replace(/[#]/g,'').trim()
+  .replace(/[^\wÀ-ɏḀ-ỿ\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').slice(0,80); }
+function resolve(fromPath, href){
+  const base = fromPath.split('/').slice(0,-1);
+  for (const part of href.split('/')){
+    if (part === '' || part === '.') continue;
+    if (part === '..') base.pop();
+    else base.push(part);
+  }
+  return base.join('/');
+}
+function toggleNav(){ document.getElementById('app').classList.toggle('nav-open'); }
+function closeNav(){ document.getElementById('app').classList.remove('nav-open'); }
+
+/* ---------- Boot ---------- */
+buildNav();
+// mac dinh thu gon cac section sau, mo 4 section dau
+DATA.sections.forEach((sec, i) => {
+  if (i >= 4){ document.querySelector(`.sec[data-dir="${cssEsc(sec.dir)}"]`)?.classList.add('collapsed'); }
+});
+route();
+</script>
+</body>
+</html>

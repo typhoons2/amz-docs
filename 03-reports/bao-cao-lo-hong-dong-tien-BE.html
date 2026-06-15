@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Báo cáo lỗ hổng dòng tiền — gửi BE</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6;padding:0 0 80px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#7f1d1d,#0f172a);padding:38px 0 28px;border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 6px;font-size:26px;letter-spacing:-.5px}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:#1e293b;border:1px solid var(--line);padding:4px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .badge b{color:var(--accent2)}
+  h2{font-size:20px;margin:36px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:12px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#0b1220;color:var(--accent2);font-weight:600}
+  tr:nth-child(even) td{background:#172033}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11.5px;color:#fbbf24;font-family:Consolas,monospace}
+  ul,ol{padding-left:20px} li{margin:6px 0}
+  .callout{border-radius:12px;padding:14px 18px;margin:14px 0;border-left:4px solid}
+  .callout.bad{background:#3a1212;border-color:var(--danger)} .callout.bad b{color:#fca5a5}
+  .callout.info{background:#0c2a3a;border-color:var(--accent2)} .callout.info b{color:#7dd3fc}
+  .callout.ok{background:#0c2e1c;border-color:var(--accent)} .callout.ok b{color:#86efac}
+  .tag{padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px;border:1px solid;white-space:nowrap;display:inline-block}
+  .bug{background:#3a1212;color:#fca5a5;border-color:#ef4444}
+  .dec{background:#1e2a3a;color:#7dd3fc;border-color:#38bdf8}
+  .hi{background:#3a1212;color:#fca5a5;border-color:#ef4444}
+  .mid{background:#3a2e12;color:#fcd34d;border-color:#f59e0b}
+  .lo{background:#1e293b;color:#cbd5e1;border-color:#64748b}
+  .now{background:#3a1212;color:#fca5a5;border-color:#ef4444}
+  .latent{background:#26303f;color:#cbd5e1;border-color:#64748b}
+  .gap{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+  .gap h3{margin:0 0 8px;font-size:16px}
+  .gap .meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .stat{display:inline-block;background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:7px 13px;margin:4px 6px 4px 0;font-size:13px}
+  .stat b{color:var(--accent);font-size:17px}
+  .ref{color:var(--muted);font-size:11.5px;font-family:Consolas,monospace;margin-top:6px}
+  footer{margin-top:46px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>📋 Báo cáo lỗ hổng dòng tiền — gửi đội Backend</h1>
+    <div style="color:var(--muted)">xanh-service · 10 lỗ hổng ghi nhận tiền · kèm số production thật + đề xuất sửa</div>
+    <div class="badges">
+      <span class="badge">Ngày: <b>2026-06-09</b></span>
+      <span class="badge">Quét + đào sâu: <b>26 agent</b></span>
+      <span class="badge">Đo prod read-only</span>
+      <span class="badge">CHƯA sửa code</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <h2>Tóm tắt cho lead</h2>
+  <div class="callout bad">
+    <b>Lỗi gốc lặp lại:</b> hệ thống ghi tiền thật lên <b>field của đơn</b> (refund 527.9tr, phụ thu 25.2tr, phí hủy, hoa hồng, tiền gia hạn) nhưng <b>không kết sổ thành phiếu thu/chi</b>. Bảng <code>transactions</code> lẽ ra là sổ cái duy nhất thì bị bỏ qua ở nhiều luồng.
+  </div>
+  <div class="callout bad">
+    <b>Thực tế production:</b> toàn bộ phiếu CHI = <b>0 đồng</b>, bảng bảo dưỡng <b>rỗng</b> → báo cáo chi phí = 0, <b>"lợi nhuận" = doanh thu chưa trừ xu nào</b>. 260/383 đơn (68%) kẹt "Chờ hoàn cọc", giữ <b>616.99tr cọc</b> nhưng <b>0 phiếu hoàn</b>. Lệch 11.2tr doanh thu vs thực thu khớp đúng <b>19 phiếu thu đã void (11.033tr)</b> vẫn lọt vào danh sách/export.
+  </div>
+
+  <h2>Ảnh chụp số production (2026-06-09)</h2>
+  <div>
+    <span class="stat">Tổng đơn <b>383</b></span>
+    <span class="stat">REFUND_PENDING <b>260</b></span>
+    <span class="stat">Phiếu CHI <b>0đ</b></span>
+    <span class="stat">Cọc đang giữ <b>616.99tr</b></span>
+    <span class="stat">Phiếu hoàn cọc <b>0</b></span>
+    <span class="stat">Lệch DT vs thực thu <b>11.2tr</b></span>
+    <span class="stat">Phiếu thu void <b>11.033tr</b></span>
+    <span class="stat">Ví/nợ khách ≠0 <b>0/2516</b></span>
+  </div>
+
+  <h2>Bảng tổng hợp 10 lỗ hổng (xếp ưu tiên)</h2>
+  <table>
+    <thead><tr><th>#</th><th>Lỗ hổng</th><th>Loại</th><th>Mức</th><th>Trên prod</th></tr></thead>
+    <tbody>
+      <tr><td>G10</td><td>Phiếu void vẫn lọt vào danh sách / export / chi tiết đơn</td><td><span class="tag bug">BUG</span></td><td><span class="tag mid">VỪA</span></td><td><span class="tag now">đang xảy ra</span></td></tr>
+      <tr><td>G3</td><td>Hoàn tiền thuê & đảo phụ thu bị tính nhầm thành chi phí (trừ kép)</td><td><span class="tag bug">BUG</span></td><td><span class="tag mid">VỪA</span></td><td><span class="tag latent">tiềm ẩn</span></td></tr>
+      <tr><td>G2</td><td>Doanh thu từ rentalPrice gộp, không đối chiếu tiền thực thu</td><td><span class="tag dec">CẦN BE QUYẾT</span></td><td><span class="tag hi">CAO</span></td><td><span class="tag now">đang xảy ra</span></td></tr>
+      <tr><td>G1</td><td>Phí bảo dưỡng không sinh phiếu chi → chi phí = 0</td><td><span class="tag dec">CẦN BE QUYẾT</span></td><td><span class="tag hi">CAO</span></td><td><span class="tag latent">tiềm ẩn</span></td></tr>
+      <tr><td>G6</td><td>Phí hủy & hoa hồng chỉ ghi field, không vào sổ phiếu</td><td><span class="tag dec">CẦN BE QUYẾT</span></td><td><span class="tag mid">VỪA</span></td><td><span class="tag latent">tiềm ẩn</span></td></tr>
+      <tr><td>G4</td><td>Gia hạn tăng tiền nhưng không thu, không tạo phiếu thu</td><td><span class="tag dec">CẦN BE QUYẾT</span></td><td><span class="tag mid">VỪA</span></td><td><span class="tag now">đang xảy ra</span></td></tr>
+      <tr><td>G8</td><td>Tịch thu cọc khi SEIZED không sinh phiếu thu/doanh thu</td><td><span class="tag dec">CẦN BE QUYẾT</span></td><td><span class="tag mid">VỪA</span></td><td><span class="tag latent">tiềm ẩn</span></td></tr>
+      <tr><td>G5</td><td>Hai báo cáo chi phí dùng hai trục ngày khác nhau</td><td><span class="tag dec">CẦN BE QUYẾT</span></td><td><span class="tag lo">THẤP</span></td><td><span class="tag latent">tiềm ẩn</span></td></tr>
+      <tr><td>G7</td><td>Đơn kẹt vĩnh viễn ở CHANGING_CAR, không có lối hủy</td><td><span class="tag dec">CẦN BE QUYẾT</span></td><td><span class="tag lo">THẤP</span></td><td><span class="tag latent">tiềm ẩn</span></td></tr>
+      <tr><td>G9</td><td>Ví / công nợ khách là cột chết (luôn = 0)</td><td><span class="tag dec">CẦN BE QUYẾT</span></td><td><span class="tag lo">THẤP</span></td><td><span class="tag now">đang xảy ra</span></td></tr>
+    </tbody>
+  </table>
+  <p style="color:var(--muted);font-size:13px">"Tiềm ẩn" = code có lỗi nhưng nghiệp vụ chưa dùng tới nên chưa gây sai số; nổ ngay khi bắt đầu dùng (nhập phiếu bảo dưỡng / hủy đơn đã thu / tịch thu cọc...).</p>
+
+  <h2>Chi tiết & đề xuất sửa (xem bản .md kèm)</h2>
+  <div class="card">
+    Mỗi lỗ hổng trong file <code>bao-cao-lo-hong-dong-tien-BE.md</code> có đủ: cơ chế (đối chiếu code), số prod, đề xuất sửa tối thiểu, và <code>file:line</code>. Hai lỗi <b>BUG</b> (G10, G3) sửa rẻ, không phá kiến trúc — nên làm trước.
+  </div>
+
+  <h2>Đề xuất GỐC — xử lý nhiều lỗ hổng cùng lúc</h2>
+  <div class="callout info">
+    <b>Coi <code>transactions</code> là sổ cái duy nhất.</b> Field tiền trên đơn/phiếu bảo dưỡng chỉ là đầu vào.
+    <ol>
+      <li><b>Chốt sổ trong cùng giao dịch</b> cho từng sự kiện: bảo dưỡng (G1), phí hủy (G6), gia hạn (G4), tịch thu cọc (G8) → mỗi sự kiện sinh/đảo đúng 1 phiếu gắn nguồn.</li>
+      <li><b>Dùng chung 1 bộ quy tắc:</b> 1 danh sách "code không phải thu/chi thực" cho mọi báo cáo (vá G3) + 1 bộ lọc phiếu đã xóa (vá G10) + 1 trục ngày chung (vá G5).</li>
+      <li><b>Thêm bước đối soát:</b> so doanh thu ghi nhận vs tiền thực thu — lệch (như 11.2tr) phải hiện lên báo cáo thay vì chìm (vá G2, G4).</li>
+    </ol>
+    → Xử lý gọn G1/G3/G4/G5/G6/G8/G10 cùng một khuôn.
+  </div>
+
+  <h2>10 câu hỏi cần lead/BE chốt trước khi code</h2>
+  <div class="card">
+    <ol>
+      <li><b>G3:</b> hoàn tiền thuê nên <b>giảm doanh thu</b> hay chỉ <b>loại khỏi chi phí</b>?</li>
+      <li><b>G1:</b> ghi nhận chi phí bảo dưỡng lúc tạo phiếu hay lúc COMPLETED? Category chuẩn <code>MAINTENANCE_COST</code>? Backfill?</li>
+      <li><b>G4:</b> gia hạn <b>thu ngay</b> hay <b>ghi nợ</b>? Cho thu tiền mặt tại chỗ?</li>
+      <li><b>G8:</b> SEIZED là <b>trung gian</b> hay đã <b>tịch thu</b>? Toàn bộ hay một phần cọc?</li>
+      <li><b>G6:</b> phí hủy đã gộp vào tiền giữ lại chưa? Hoa hồng tính sổ lúc nào? Đã dùng chưa?</li>
+      <li><b>G2:</b> 260 đơn REFUND_PENDING tính full doanh thu hay trừ phần sẽ hoàn? Thêm cột đối chiếu?</li>
+      <li><b>G5:</b> chi phí theo <b>CASH</b> (ngày bấm phiếu) hay <b>ACCRUAL</b> (ngày giao xe)?</li>
+      <li><b>G10:</b> danh sách giao dịch có cần chế độ xem cả phiếu đã void (audit)?</li>
+      <li><b>G7:</b> cho hủy/revert đơn đang CHANGING_CAR không? Revert có trừ lại totalAmount?</li>
+      <li><b>G9:</b> ví/công nợ có trong roadmap gần? Nếu không, ẩn 2 cột khỏi màn khách?</li>
+    </ol>
+  </div>
+
+  <div class="callout ok"><b>Lưu ý:</b> đây là báo cáo phát hiện — <b>chưa sửa code</b>. Đề xuất sửa tối thiểu, không phá kiến trúc. Cần chốt câu hỏi trên trước khi triển khai.</div>
+
+  <footer>
+    Nguồn: quét cạn code (15 agent) + đào sâu (11 agent) + đo production read-only (postgres-prod) — 2026-06-09.
+    Bản đầy đủ: <code>bao-cao-lo-hong-dong-tien-BE.md</code>. Liên quan: <code>../02-technical/ban-do-dong-tien.html</code>.
+  </footer>
+
+</div>
+</body>
+</html>

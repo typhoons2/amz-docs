@@ -40,7 +40,7 @@
 
 | File | Mo ta | Ai doc |
 |------|-------|--------|
-| [state-machine.md](02-technical/state-machine.md) | State machine booking: transition map, dieu kien hop le | Dev BE |
+| [state-machine.md](01-business/state-machine.md) | State machine booking: transition map, dieu kien hop le | Dev BE |
 | api-contracts/ | Contract API theo domain (booking, xe, tram, khach hang...) | Dev FE + BE |
 | sequence-diagrams/ | Sequence diagram cac luong chinh (giao xe, nhan xe, confirm refund) | Dev |
 | database-schema.md | Schema DB: bang chinh, index, constraint | [Chua tao — Wave 2] |
@@ -57,6 +57,7 @@
 
 | File | Mo ta | Ai doc |
 |------|-------|--------|
+| [cursor-multi-repo-workspace.md](03-operations/cursor-multi-repo-workspace.md) | Hien du Git repo trong Cursor/VS Code (multi-root, worktree, settings) | Lead, Dev |
 | deploy-guide.md | Quy trinh deploy: staging va production, rollback | [Chua tao — Wave 2] |
 | docker-compose-reference.md | Tham chieu docker-compose.yml cua prod va staging | [Chua tao — Wave 2] |
 | cicd-pipeline.md | Chi tiet GitHub Actions workflow | [Chua tao — Wave 2] |
@@ -87,7 +88,8 @@
 | Y nghia trang thai booking | [domain-glossary.md](00-overview/domain-glossary.md) |
 | Ai duoc lam gi | [permission-matrix.md](01-business/permission-matrix.md) |
 | Setup moi truong | [onboarding-guide.md](00-overview/onboarding-guide.md) |
+| Cursor hien du repo | [cursor-multi-repo-workspace.md](03-operations/cursor-multi-repo-workspace.md) hoac `CURSOR-MULTI-REPO.md` o root Project |
 | Table name thuc te | Grep `@Table(name=...)` trong `xanh-service/src/main/java/.../entity/*.java` |
 | Business defaults | `.planning/intel/business-defaults.md` |
 | VPS + credentials | `.planning/intel/vps.md` + `.planning/intel/secrets.md` |
-| State machine booking | `docs/02-technical/state-machine.md` |
+| State machine booking | `docs/01-business/state-machine.md` |

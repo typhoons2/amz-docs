@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiến trúc tổng thể hệ thống AMZ</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --warnbg:#3a2e12; --danger:#ef4444;
+    --khach:#0ea5e9; --admin:#a855f7; --be:#22c55e; --infra:#64748b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.6;padding:0 0 80px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  header{background:linear-gradient(135deg,#14532d,#0f172a);padding:40px 0 32px;border-bottom:1px solid var(--line);margin-bottom:32px}
+  header h1{margin:0 0 8px;font-size:30px;letter-spacing:-.5px}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:var(--card);border:1px solid var(--line);padding:4px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .badge b{color:var(--accent)}
+  h2{font-size:22px;margin:40px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h3{font-size:17px;margin:24px 0 10px;color:var(--accent2)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;margin:16px 0}
+  .diagram{background:#0b1220;border-radius:14px;padding:18px;overflow:auto;text-align:center}
+  .mermaid{font-size:15px}
+  ul{padding-left:20px}
+  li{margin:7px 0}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:#0b1220;color:var(--accent2);font-weight:600}
+  tr:nth-child(even) td{background:#172033}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px;color:#fbbf24;font-family:"SF Mono",Consolas,monospace}
+  .port{display:inline-block;background:#064e3b;color:#6ee7b7;border-radius:6px;padding:1px 8px;font-weight:700;font-size:13px;font-family:monospace}
+  .dash{color:var(--muted)}
+  .callout{border-radius:12px;padding:14px 18px;margin:16px 0;border-left:4px solid}
+  .callout.warn{background:var(--warnbg);border-color:var(--warn)}
+  .callout.warn b{color:#fbbf24}
+  .callout.info{background:#0c2a3a;border-color:var(--accent2)}
+  .callout.info b{color:#7dd3fc}
+  .callout.ok{background:#0c2e1c;border-color:var(--accent)}
+  .callout.ok b{color:#86efac}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .dot{width:14px;height:14px;border-radius:4px;display:inline-block}
+  .note{color:var(--muted);font-size:13.5px;font-style:italic;margin-top:8px}
+  .pill{font-size:12px;padding:1px 8px;border-radius:999px;font-weight:600}
+  .pill.kh{background:#0c4a6e;color:#7dd3fc}
+  .pill.ad{background:#4a1d6e;color:#d8b4fe}
+  .pill.be{background:#14532d;color:#86efac}
+  .pill.inf{background:#334155;color:#cbd5e1}
+  footer{margin-top:48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🏗️ Kiến trúc tổng thể hệ thống AMZ</h1>
+    <div style="color:var(--muted)">Cho thuê xe — bản đồ toàn hệ thống cho lead</div>
+    <div class="badges">
+      <span class="badge">Cập nhật: <b>2026-06-09</b></span>
+      <span class="badge">Đã đối chiếu code thật</span>
+      <span class="badge">3 service backend · 4 app · 1 DB chung</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <h2>1. Sơ đồ tổng thể</h2>
+  <p>Toàn bộ ứng dụng (app khách + admin) đều đi qua <b>một cổng chung</b> (gateway), gateway phân luồng tới các service backend. Các service đều đọc/ghi vào <b>một PostgreSQL DÙNG CHUNG</b>.</p>
+
+  <div class="diagram">
+    <pre class="mermaid">
+graph TD
+    subgraph KHACH["📱 App phía khách hàng"]
+        BCA["booking-car-app<br/>(Flutter - khách)"]
+        AXFE["amazing-xanh-fe<br/>(Next.js web - khách)"]
+    end
+    subgraph ADMIN["🖥️ App phía quản trị (admin/staff)"]
+        AXAFE["amazing-xanh-admin-fe<br/>(Next.js web - admin)"]
+        AXAAPP["amz_xanh_admin_app<br/>(Flutter - admin)"]
+    end
+    GW["🚪 amz-api-gateway<br/>(cổng vào duy nhất)<br/>JWT + rate limit"]
+    subgraph SERVICES["⚙️ Các service backend"]
+        XANH["xanh-service :8080<br/>(nghiệp vụ: booking, xe,<br/>trạm, khách, tài chính)"]
+        AUTHC["customer-auth-service :8081<br/>(đăng nhập KHÁCH:<br/>login, register, OTP, Google)"]
+        AUTH["internal-auth-service :8084<br/>(đăng nhập staff/admin,<br/>JWT, role, company)"]
+        SOCKET["amz-socket<br/>(realtime STOMP/SockJS/Redis)"]
+    end
+    DB[("🗄️ PostgreSQL<br/>DÙNG CHUNG")]
+    REDIS[("Redis<br/>kênh pub/sub")]
+    TELE["✈️ Telegram<br/>(thông báo đơn mới)"]
+
+    BCA --> GW
+    AXFE --> GW
+    AXAFE --> GW
+    AXAAPP --> GW
+    GW --> XANH
+    GW --> AUTHC
+    GW --> AUTH
+    XANH --> DB
+    AUTHC --> DB
+    AUTH --> DB
+    XANH -- "gửi Telegram<br/>(HIỆN chỉ 'đơn mới')" --> TELE
+    REDIS -- "subscribe + forward" --> SOCKET
+    SOCKET -. "WebSocket realtime" .-> AXAFE
+    SOCKET -. "WebSocket realtime" .-> AXFE
+    SOCKET -. "WebSocket realtime" .-> BCA
+    XANH -. "⚠️ CHƯA thấy publisher" .-> REDIS
+
+    classDef kh fill:#0c4a6e,stroke:#0ea5e9,color:#e0f2fe;
+    classDef ad fill:#4a1d6e,stroke:#a855f7,color:#f3e8ff;
+    classDef be fill:#14532d,stroke:#22c55e,color:#dcfce7;
+    classDef infra fill:#1e293b,stroke:#64748b,color:#e2e8f0;
+    classDef ext fill:#3a2e12,stroke:#f59e0b,color:#fef3c7;
+    class BCA,AXFE kh;
+    class AXAFE,AXAAPP ad;
+    class XANH,AUTHC,AUTH,SOCKET be;
+    class DB,REDIS,GW infra;
+    class TELE ext;
+    </pre>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="background:#0ea5e9"></i> App khách</span>
+    <span><i class="dot" style="background:#a855f7"></i> App admin</span>
+    <span><i class="dot" style="background:#22c55e"></i> Service backend</span>
+    <span><i class="dot" style="background:#64748b"></i> Hạ tầng (gateway/DB/Redis)</span>
+    <span><i class="dot" style="background:#f59e0b"></i> Dịch vụ ngoài (Telegram)</span>
+    <span><i class="dot" style="background:#94a3b8;border:1px dashed #94a3b8"></i> Nét đứt = chưa xác minh/realtime</span>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:4px">📖 Đọc sơ đồ bằng lời</h3>
+    <ul>
+      <li>4 ứng dụng (2 khách + 2 admin) <b>không gọi thẳng</b> vào service nào, mà luôn đi qua <code>amz-api-gateway</code>.</li>
+      <li>Gateway kiểm tra JWT (token đăng nhập) + giới hạn số lần gọi (chống lạm dụng), rồi chuyển yêu cầu tới đúng service.</li>
+      <li><code>xanh-service</code> xử lý toàn bộ nghiệp vụ (đặt xe, xe, trạm, khách hàng, thu chi).</li>
+      <li><code>customer-auth-service</code> lo đăng nhập/đăng ký của <b>khách hàng</b> (kể cả Google, OTP, quên mật khẩu).</li>
+      <li><code>internal-auth-service</code> lo đăng nhập của <b>nhân viên/admin nội bộ</b>.</li>
+      <li>→ Hệ thống có <b>2 cửa đăng nhập tách biệt</b>: khách đi cửa <code>customer-auth</code>, nhân viên đi cửa <code>internal-auth</code>.</li>
+      <li>Tất cả service ghi/đọc chung <b>một PostgreSQL</b>.</li>
+    </ul>
+  </div>
+
+  <div class="callout ok">
+    <b>✅ Thông báo (đã xác minh trong code 2026-06-09):</b> khi có <b>đơn mới</b>, <code>xanh-service</code> gửi một tin nhắn <b>Telegram</b> (vào nhóm theo vùng), chạy <i>sau khi lưu đơn thành công</i>. <b>Hiện tại CHỈ "đơn mới" được gửi thật</b> — các sự kiện khác (giao xe, nhận xe, hủy, hoàn cọc, KYC chờ duyệt...) đã viết code nhưng <b>đang tắt ở bước gửi</b> (bật lại được khi cần).
+  </div>
+
+  <div class="callout warn">
+    <b>⚠️ Realtime qua WebSocket — chưa chắc chạy:</b> <code>amz-socket</code> có nghe <b>Redis</b> và đẩy xuống app qua WebSocket (chỉ là <b>bộ chuyển tiếp</b>). NHƯNG <b>chưa tìm thấy chỗ nào trong <code>xanh-service</code> đẩy tin vào Redis</b> → kênh realtime panel admin <b>hiện có thể chưa chạy với sự kiện booking</b>. Cần xác minh ai là bên đẩy tin vào Redis trước khi dựa vào realtime này.
+  </div>
+
+  <h2>2. Bảng các thành phần</h2>
+  <table>
+    <thead><tr><th>Thành phần</th><th>Vai trò</th><th>Port</th><th>Công nghệ</th><th>Người dùng</th></tr></thead>
+    <tbody>
+      <tr><td><b>booking-car-app</b> <span class="pill kh">khách</span></td><td>App đặt xe cho khách (đăng nhập, KYC CCCD/GPLX, tìm xe, đặt xe, thanh toán cọc, xem hợp đồng)</td><td><span class="dash">— di động</span></td><td>Flutter</td><td>Khách hàng</td></tr>
+      <tr><td><b>amazing-xanh-fe</b> <span class="pill kh">khách</span></td><td>Web đặt xe cho khách (tìm xe, đặt xe, hồ sơ, lịch sử, blog)</td><td><span class="dash">3000 dev</span></td><td>Next.js + React</td><td>Khách hàng</td></tr>
+      <tr><td><b>amazing-xanh-admin-fe</b> <span class="pill ad">admin</span></td><td>Web quản trị (hợp đồng, giao/nhận xe, tài chính, danh sách, cấu hình, báo cáo, lịch xe)</td><td><span class="dash">3000 dev</span></td><td>Next.js App Router</td><td>Admin / NV</td></tr>
+      <tr><td><b>amz_xanh_admin_app</b> <span class="pill ad">admin</span></td><td>App quản trị di động (booking, giao/nhận, xe, khách, tài chính, bảo dưỡng, khuyến mãi)</td><td><span class="dash">— di động</span></td><td>Flutter</td><td>Admin / NV</td></tr>
+      <tr><td><b>amz-api-gateway</b> <span class="pill inf">hạ tầng</span></td><td>Cổng vào duy nhất: định tuyến, kiểm tra JWT, giới hạn tần suất gọi</td><td><span class="dash">gateway</span></td><td>Spring Cloud Gateway</td><td>(hạ tầng)</td></tr>
+      <tr><td><b>xanh-service</b> <span class="pill be">backend</span></td><td>Backend nghiệp vụ: booking, xe, trạm, khách hàng, KYC, khuyến mãi, bảo dưỡng, tài chính, báo cáo, CMS</td><td><span class="port">8080</span></td><td>Java / Spring Boot</td><td>(qua app/admin)</td></tr>
+      <tr><td><b>customer-auth-service</b> <span class="pill be">backend</span></td><td>Auth khách: login, register, refresh, logout, đổi/quên mật khẩu, OTP, reset, profile, Google login, xóa TK</td><td><span class="port">8081</span></td><td>Java / Spring Boot</td><td>(app/web khách)</td></tr>
+      <tr><td><b>internal-auth-service</b> <span class="pill be">backend</span></td><td>Auth nội bộ: đăng nhập staff/admin, JWT, role, company, đổi/quên mật khẩu</td><td><span class="port">8084</span></td><td>Java / Spring Boot</td><td>(qua admin)</td></tr>
+      <tr><td><b>amz-socket</b> <span class="pill be">backend</span></td><td>Realtime: nghe Redis, đẩy WebSocket xuống app (chỉ chuyển tiếp). ⚠️ Chưa rõ bên nào đẩy tin vào Redis</td><td><span class="dash">—</span></td><td>Spring Boot + STOMP/SockJS + Redis</td><td>(mọi app)</td></tr>
+      <tr><td><b>PostgreSQL</b> <span class="pill inf">hạ tầng</span></td><td>CSDL <b>dùng chung</b> cho mọi service</td><td><span class="dash">DB</span></td><td>PostgreSQL</td><td>(hạ tầng)</td></tr>
+      <tr><td><b>Redis</b> <span class="pill inf">hạ tầng</span></td><td>Kênh pub/sub mà <code>amz-socket</code> lắng nghe để forward realtime</td><td><span class="dash">bus</span></td><td>Redis</td><td>(hạ tầng)</td></tr>
+      <tr><td><b>Telegram</b> <span class="pill" style="background:#3a2e12;color:#fbbf24">ngoài</span></td><td>Kênh thông báo đơn mới cho đội vận hành (chỉ <code>BookingCreated</code> đang bật)</td><td><span class="dash">—</span></td><td>Telegram Bot API</td><td>Đội vận hành</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Ghi chú port: cả <code>amazing-xanh-fe</code> và <code>amazing-xanh-admin-fe</code> đều chạy local trên <code>localhost:3000</code> khi dev (chạy riêng từng cái). Phía backend: xanh-service 8080, customer-auth 8081, internal-auth 8084.</p>
+
+  <h2>3. Quy ước quan trọng (BẮT BUỘC nhớ)</h2>
+
+  <h3>3.1. responseCode success khác nhau theo service</h3>
+  <p>Luôn kiểm tra <code>response.responseCode</code>, <b>KHÔNG</b> chỉ dựa vào HTTP status (HTTP 200 không có nghĩa là nghiệp vụ thành công).</p>
+  <table style="max-width:420px">
+    <thead><tr><th>Service</th><th>Mã success</th></tr></thead>
+    <tbody>
+      <tr><td><code>xanh-service</code></td><td><code>"00"</code></td></tr>
+      <tr><td><code>customer-auth-service</code></td><td><code>"200"</code></td></tr>
+      <tr><td><code>internal-auth-service</code></td><td><code>"200"</code></td></tr>
+    </tbody>
+  </table>
+  <div class="card" style="padding:14px 18px">
+    <div class="note" style="margin:0 0 6px">Format response chung của xanh-service:</div>
+<pre style="margin:0;color:#a5b4fc;font-size:13px;font-family:monospace;white-space:pre-wrap">{
+  "response": { "responseCode": "00", "responseMessage": "...", "responseId": "...", "responseTime": "..." },
+  "result": { ... }
+}</pre>
+  </div>
+
+  <h3>3.2. Một DB chung — không service nào có DB riêng</h3>
+  <ul>
+    <li>Toàn bộ service (<code>xanh-service</code>, <code>customer-auth</code>, <code>internal-auth</code>...) cùng đọc/ghi <b>một PostgreSQL duy nhất</b>.</li>
+    <li>Hệ quả: đổi schema phải cẩn trọng vì có thể ảnh hưởng nhiều service. Trước khi viết SQL migration phải mở entity <code>.java</code> lấy tên bảng THỰC TẾ (<code>@Table(name=...)</code>, vd <code>new_cars</code> chứ không phải <code>car</code>).</li>
+  </ul>
+
+  <h3>3.3. Không import cross-service entity</h3>
+  <ul>
+    <li>Mỗi service có <b>bộ entity riêng</b> dù dùng chung DB.</li>
+    <li><b>KHÔNG</b> import entity của service khác. Không copy-paste code giữa <code>xanh-service</code> và auth service mà quên đổi <code>responseCode</code>.</li>
+  </ul>
+
+  <h2>4. Hai cửa đăng nhập tách biệt (khách vs nhân viên)</h2>
+  <p>Hệ thống có <b>2 service auth riêng</b>, đừng nhầm lẫn:</p>
+  <table>
+    <thead><tr><th></th><th>🧑 Khách hàng</th><th>👮 Nhân viên / Admin</th></tr></thead>
+    <tbody>
+      <tr><td><b>Service</b></td><td><code>customer-auth-service</code> <span class="port">8081</span></td><td><code>internal-auth-service</code> <span class="port">8084</span></td></tr>
+      <tr><td><b>Dùng ở</b></td><td>app <code>booking-car-app</code>, web <code>amazing-xanh-fe</code></td><td>web <code>amazing-xanh-admin-fe</code>, app <code>amz_xanh_admin_app</code></td></tr>
+      <tr><td><b>Chức năng</b></td><td>login, register, refresh-token, logout, verify OTP, forgot/reset password, profile, <b>Google login</b>, xóa tài khoản</td><td>login staff/admin, JWT, role, company, đổi/quên mật khẩu</td></tr>
+      <tr><td><b>Mã success</b></td><td><code>"200"</code></td><td><code>"200"</code></td></tr>
+      <tr><td><b>Lưu ở bảng</b></td><td><code>customers</code></td><td><code>users</code></td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <b>⚠️ Bẫy DB:</b> 2 bảng <code>user_identities</code> / <code>user_licenses</code> có cột tên <code>user_id</code> nhưng thực tế <b>trỏ <code>customers(id)</code></b> (CCCD/GPLX của khách), KHÔNG phải bảng <code>users</code>.
+  </div>
+  <div class="callout info">
+    <b>ℹ️ Lưu ý:</b> <code>CLAUDE.md</code> còn liệt kê <code>traffic-worker-service</code> (Python worker — schedule/crawler/jobs) nhưng repo này <b>không có trong workspace hiện tại</b>; nếu cần đụng tới worker, xác nhận vị trí repo.
+  </div>
+
+  <footer>
+    Tài liệu trực quan sinh từ <code>docs/00-overview/kien-truc-tong-the.md</code> — bản đồ tổng quan.
+    Chi tiết luồng nghiệp vụ: <code>docs/01-business/luong-nghiep-vu-tong-hop.md</code>.
+    Bẫy nghiệp vụ / schema chi tiết: <code>CLAUDE-deep.md</code>.
+    <br>Cần internet để vẽ sơ đồ (thư viện Mermaid tải từ CDN).
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad:true,
+    theme:'dark',
+    securityLevel:'loose',
+    flowchart:{ curve:'basis', htmlLabels:true, padding:14 }
+  });
+</script>
+</body>
+</html>
